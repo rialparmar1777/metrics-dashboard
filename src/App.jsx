@@ -1,0 +1,58 @@
+import React, { useEffect, useState } from 'react';
+import { fetchStockData, fetchHistoricalData } from '../services/api';
+import StockChart from '../src/components/StockChart';
+import StockCard from '../src/components/StockCard';
+import { FaChartLine, FaDollarSign } from 'react-icons/fa';
+import Navbar from '../src/components/Navbar';
+
+function App() {
+  const [stockData, setStockData] = useState(null);
+  const [historicalData, setHistoricalData] = useState(null);
+
+  useEffect(() => {
+    const getData = async () => {
+      const currentData = await fetchStockData('AAPL');
+      setStockData(currentData);
+
+      const now = Math.floor(Date.now() / 1000);
+      const oneMonthAgo = now - 30 * 86400;
+      const historical = await fetchHistoricalData('AAPL', 'D', oneMonthAgo, now);
+      setHistoricalData(historical);
+    };
+    getData();
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <Navbar />
+      <header className="text-center mb-8">
+        <h1 className="text-4xl font-bold text-blue-600 flex items-center justify-center">
+          <FaChartLine className="mr-2" />
+          Tech Stocks Dashboard
+        </h1>
+        <p className="text-gray-600">Track your favorite tech stocks in real-time.</p>
+      </header>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {stockData && (
+          <StockCard
+            title="Apple Inc. (AAPL)"
+            data={stockData}
+          />
+        )}
+
+        {historicalData && (
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-xl font-semibold mb-4 flex items-center">
+              <FaDollarSign className="mr-2" />
+              Historical Data
+            </h2>
+            <StockChart data={historicalData} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default App;
