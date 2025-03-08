@@ -3,7 +3,7 @@ import { FaHome, FaChartLine } from 'react-icons/fa';
 
 const Navbar = () => {
   return (
-    <nav className="bg-blue-600 text-white p-4 shadow-lg">
+    <nav className="bg-gradient-to-r from-blue-600 to-blue-500 text-white p-4 shadow-lg sticky top-0 z-50">
       <div className="container mx-auto flex justify-between items-center">
         <div className="flex items-center">
           <FaChartLine className="text-2xl mr-2" />

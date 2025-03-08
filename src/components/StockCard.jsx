@@ -5,27 +5,27 @@ const StockCard = ({ title, data }) => {
   const isPositive = data.c > data.pc;
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <h2 className="text-xl font-semibold mb-4">{title}</h2>
+    <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow duration-300">
+      <h2 className="text-xl font-semibold mb-4 text-blue-800">{title}</h2>
       <div className="space-y-4">
         <div className="flex justify-between">
-          <span className="text-gray-600">Current Price</span>
-          <span className="font-bold">${data.c}</span>
+          <span className="text-gray-700">Current Price</span>
+          <span className="font-bold text-blue-800">${data.c}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-600">High</span>
-          <span className="font-bold">${data.h}</span>
+          <span className="text-gray-700">High</span>
+          <span className="font-bold text-blue-800">${data.h}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-600">Low</span>
-          <span className="font-bold">${data.l}</span>
+          <span className="text-gray-700">Low</span>
+          <span className="font-bold text-blue-800">${data.l}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-600">Previous Close</span>
-          <span className="font-bold">${data.pc}</span>
+          <span className="text-gray-700">Previous Close</span>
+          <span className="font-bold text-blue-800">${data.pc}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-600">Change</span>
+          <span className="text-gray-700">Change</span>
           <span
             className={`font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}`}
           >

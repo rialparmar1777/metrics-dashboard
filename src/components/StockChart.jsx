@@ -44,12 +44,16 @@ const StockChart = ({ data }) => {
               },
             },
           },
+          animation: {
+            duration: 1000,
+            easing: 'easeInOutQuart',
+          },
         },
       });
     }
   }, [data]);
 
-  return <canvas ref={chartRef} className="w-full h-64" />;
+  return <canvas ref={chartRef} className="w-full h-96" />;
 };
 
 export default StockChart;
