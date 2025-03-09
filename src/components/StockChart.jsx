@@ -37,10 +37,16 @@ const StockChart = ({ data }) => {
               grid: {
                 display: false,
               },
+              ticks: {
+                color: '#ffffff', // White text for dark mode
+              },
             },
             y: {
               grid: {
-                color: 'rgba(0, 0, 0, 0.05)',
+                color: 'rgba(255, 255, 255, 0.1)', // Light grid for dark mode
+              },
+              ticks: {
+                color: '#ffffff', // White text for dark mode
               },
             },
           },

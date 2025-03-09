@@ -9,21 +9,37 @@ function App() {
   const [stockData, setStockData] = useState(null);
   const [historicalData, setHistoricalData] = useState(null);
 
+  // Fetch live stock data every 5 seconds
   useEffect(() => {
-    const getData = async () => {
+    const fetchLiveData = async () => {
       const currentData = await fetchStockData('AAPL');
       setStockData(currentData);
+    };
 
+    // Fetch data immediately
+    fetchLiveData();
+
+    // Set up polling
+    const interval = setInterval(fetchLiveData, 5000); // Fetch every 5 seconds
+
+    // Cleanup interval on unmount
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch historical data once on mount
+  useEffect(() => {
+    const fetchHistorical = async () => {
       const now = Math.floor(Date.now() / 1000);
-      const oneMonthAgo = now - 30 * 86400;
+      const oneMonthAgo = now - 30 * 86400; // 30 days ago
       const historical = await fetchHistoricalData('AAPL', 'D', oneMonthAgo, now);
       setHistoricalData(historical);
     };
-    getData();
+
+    fetchHistorical();
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col">
       <Navbar />
       <header className="text-center py-12 bg-gradient-to-r from-blue-600 to-blue-500 text-white">
         <h1 className="text-4xl font-bold flex items-center justify-center">
@@ -43,8 +59,8 @@ function App() {
           )}
 
           {historicalData && (
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center text-blue-800 dark:text-blue-200">
                 <FaDollarSign className="mr-2" />
                 Historical Data
               </h2>

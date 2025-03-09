@@ -1,7 +1,14 @@
-import React from 'react';
-import { FaHome, FaChartLine } from 'react-icons/fa';
+import React, { useState } from 'react';
+import { FaHome, FaChartLine, FaMoon, FaSun, FaList } from 'react-icons/fa';
 
 const Navbar = () => {
+  const [darkMode, setDarkMode] = useState(false);
+
+  const toggleDarkMode = () => {
+    setDarkMode(!darkMode);
+    document.documentElement.classList.toggle('dark');
+  };
+
   return (
     <nav className="bg-gradient-to-r from-blue-600 to-blue-500 text-white p-4 shadow-lg sticky top-0 z-50">
       <div className="container mx-auto flex justify-between items-center">
@@ -15,6 +22,18 @@ const Navbar = () => {
               <FaHome className="mr-1" />
               Home
             </a>
+          </li>
+          <li>
+            <a href="/watchlist" className="hover:text-blue-200 flex items-center">
+              <FaList className="mr-1" />
+              Watchlist
+            </a>
+          </li>
+          <li>
+            <button onClick={toggleDarkMode} className="hover:text-blue-200 flex items-center">
+              {darkMode ? <FaSun className="mr-1" /> : <FaMoon className="mr-1" />}
+              {darkMode ? 'Light Mode' : 'Dark Mode'}
+            </button>
           </li>
         </ul>
       </div>
