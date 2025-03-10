@@ -1,7 +1,5 @@
 import axios from 'axios';
 
-const FINNHUB_API_KEY = import.meta.env.VITE_FINNHUB_API_KEY;
-const FINNHUB_BASE_URL = 'https://finnhub.io/api/v1';
 const API_URL = import.meta.env.VITE_API_URL;
 
 // Configure axios defaults
@@ -15,12 +13,7 @@ if (token) {
 
 export const fetchStockData = async (symbol) => {
   try {
-    const response = await axios.get(`${FINNHUB_BASE_URL}/quote`, {
-      params: {
-        symbol: symbol.toUpperCase(),
-        token: FINNHUB_API_KEY,
-      },
-    });
+    const response = await axios.get(`${API_URL}/stock/${symbol}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching stock data:', error);
@@ -34,19 +27,13 @@ export const fetchHistoricalData = async (symbol, resolution = 'D', from, to) =>
     const currentTime = Math.floor(Date.now() / 1000);
     const oneMonthAgo = currentTime - (30 * 24 * 60 * 60);
 
-    const response = await axios.get(`${FINNHUB_BASE_URL}/stock/candle`, {
+    const response = await axios.get(`${API_URL}/stock/${symbol}/historical`, {
       params: {
-        symbol: symbol.toUpperCase(),
-        resolution: resolution,
+        resolution,
         from: from || oneMonthAgo,
         to: to || currentTime,
-        token: FINNHUB_API_KEY,
       },
     });
-
-    if (response.data.s === 'no_data') {
-      throw new Error('No data available for this time range');
-    }
 
     return response.data;
   } catch (error) {

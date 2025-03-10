@@ -3,6 +3,7 @@ const cors = require('cors');
 const admin = require('firebase-admin');
 const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken');
+const axios = require('axios');
 
 // Load environment variables
 dotenv.config();
@@ -41,6 +42,49 @@ const authenticateToken = async (req, res, next) => {
     return res.status(403).json({ error: 'Invalid token' });
   }
 };
+
+// Stock data endpoints
+app.get('/stock/:symbol', authenticateToken, async (req, res) => {
+  try {
+    const { symbol } = req.params;
+    const response = await axios.get('https://finnhub.io/api/v1/quote', {
+      params: {
+        symbol: symbol.toUpperCase(),
+        token: process.env.FINNHUB_API_KEY,
+      },
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching stock data:', error);
+    res.status(500).json({ error: 'Failed to fetch stock data' });
+  }
+});
+
+app.get('/stock/:symbol/historical', authenticateToken, async (req, res) => {
+  try {
+    const { symbol } = req.params;
+    const { from, to, resolution = 'D' } = req.query;
+
+    const response = await axios.get('https://finnhub.io/api/v1/stock/candle', {
+      params: {
+        symbol: symbol.toUpperCase(),
+        resolution,
+        from,
+        to,
+        token: process.env.FINNHUB_API_KEY,
+      },
+    });
+
+    if (response.data.s === 'no_data') {
+      return res.status(404).json({ error: 'No data available for this time range' });
+    }
+
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching historical data:', error);
+    res.status(500).json({ error: 'Failed to fetch historical data' });
+  }
+});
 
 // Routes
 app.get('/', (req, res) => {
