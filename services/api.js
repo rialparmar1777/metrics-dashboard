@@ -1,106 +1,192 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
-// Configure axios defaults
-axios.defaults.withCredentials = true;
+// Create axios instance with default config
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
-// Add token to requests if it exists
-const token = localStorage.getItem('token');
-if (token) {
-  axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-}
-
-export const fetchStockData = async (symbol) => {
-  try {
-    const response = await axios.get(`${API_URL}/stock/${symbol}`);
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching stock data:', error);
-    throw error;
+// Add request interceptor for authentication
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
+  return config;
+});
+
+// Add response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('userId');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Cache for stock data
+const stockDataCache = new Map();
+const CACHE_DURATION = 60000; // 1 minute
+
+// Cache for historical data
+const historicalDataCache = new Map();
+const HISTORICAL_CACHE_DURATION = 300000; // 5 minutes
+
+// Cache for news data
+const newsCache = new Map();
+const NEWS_CACHE_DURATION = 300000; // 5 minutes
+
+// Helper function to check if cache is valid
+const isCacheValid = (timestamp, duration) => {
+  return Date.now() - timestamp < duration;
 };
 
-export const fetchHistoricalData = async (symbol, resolution = 'D', from, to) => {
-  try {
-    // Ensure timestamps are valid
-    const currentTime = Math.floor(Date.now() / 1000);
-    const oneMonthAgo = currentTime - (30 * 24 * 60 * 60);
-
-    const response = await axios.get(`${API_URL}/stock/${symbol}/historical`, {
-      params: {
-        resolution,
-        from: from || oneMonthAgo,
-        to: to || currentTime,
-      },
-    });
-
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching historical data:', error);
-    throw error;
+// Helper function to handle rate limits
+const handleRateLimit = async (error) => {
+  if (error.response?.status === 429) {
+    const retryAfter = parseInt(error.response.headers['x-ratelimit-reset']) - Math.floor(Date.now() / 1000);
+    if (retryAfter > 0) {
+      await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+      return true;
+    }
   }
+  return false;
 };
 
-// Authentication functions
 export const login = async (email, password) => {
   try {
-    const response = await axios.post(`${API_URL}/login`, { email, password });
-    const { token, user } = response.data;
-    
+    const response = await api.post('/auth/login', { email, password });
+    const { token, userId } = response.data;
     localStorage.setItem('token', token);
-    localStorage.setItem('userId', user.uid);
-    localStorage.setItem('userEmail', user.email);
-    
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    localStorage.setItem('userId', userId);
     return response.data;
   } catch (error) {
-    console.error('Login error:', error);
-    throw error;
+    throw new Error(error.response?.data?.message || 'Login failed');
   }
 };
 
-export const signup = async (email, password) => {
+export const register = async (email, password) => {
   try {
-    const response = await axios.post(`${API_URL}/signup`, { email, password });
-    const { token, user } = response.data;
-    
+    const response = await api.post('/auth/register', { email, password });
+    const { token, userId } = response.data;
     localStorage.setItem('token', token);
-    localStorage.setItem('userId', user.uid);
-    localStorage.setItem('userEmail', user.email);
-    
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    localStorage.setItem('userId', userId);
     return response.data;
   } catch (error) {
-    console.error('Signup error:', error);
-    throw error;
+    throw new Error(error.response?.data?.message || 'Registration failed');
   }
 };
 
 export const logout = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('userId');
-  localStorage.removeItem('userEmail');
-  delete axios.defaults.headers.common['Authorization'];
+  window.location.href = '/login';
 };
 
-// Watchlist functions
-export const saveWatchlist = async (stocks) => {
+export const fetchStockData = async (symbol) => {
   try {
-    const response = await axios.post(`${API_URL}/watchlist`, { stocks });
-    return response.data;
+    // Check cache first
+    const cachedData = stockDataCache.get(symbol);
+    if (cachedData && isCacheValid(cachedData.timestamp, CACHE_DURATION)) {
+      return cachedData.data;
+    }
+
+    const response = await api.get(`/api/stock/${symbol}`);
+    const data = response.data;
+
+    // Update cache
+    stockDataCache.set(symbol, {
+      data,
+      timestamp: Date.now()
+    });
+
+    return data;
   } catch (error) {
-    console.error('Error saving watchlist:', error);
-    throw error;
+    if (await handleRateLimit(error)) {
+      return fetchStockData(symbol); // Retry after rate limit
+    }
+    throw new Error(error.response?.data?.message || 'Failed to fetch stock data');
   }
 };
 
-export const getWatchlist = async (userId) => {
+export const fetchHistoricalData = async (symbol, resolution, from, to) => {
   try {
-    const response = await axios.get(`${API_URL}/watchlist/${userId}`);
+    const cacheKey = `${symbol}-${resolution}-${from}-${to}`;
+    
+    // Check cache first
+    const cachedData = historicalDataCache.get(cacheKey);
+    if (cachedData && isCacheValid(cachedData.timestamp, HISTORICAL_CACHE_DURATION)) {
+      return cachedData.data;
+    }
+
+    const response = await api.get(`/api/stock/${symbol}/historical`, {
+      params: { resolution, from, to }
+    });
+    const data = response.data;
+
+    // Update cache
+    historicalDataCache.set(cacheKey, {
+      data,
+      timestamp: Date.now()
+    });
+
+    return data;
+  } catch (error) {
+    if (await handleRateLimit(error)) {
+      return fetchHistoricalData(symbol, resolution, from, to); // Retry after rate limit
+    }
+    throw new Error(error.response?.data?.message || 'Failed to fetch historical data');
+  }
+};
+
+export const fetchMarketNews = async () => {
+  try {
+    // Check cache first
+    const cachedData = newsCache.get('market');
+    if (cachedData && isCacheValid(cachedData.timestamp, NEWS_CACHE_DURATION)) {
+      return cachedData.data;
+    }
+
+    const response = await api.get('/api/news');
+    const data = response.data;
+
+    // Update cache
+    newsCache.set('market', {
+      data,
+      timestamp: Date.now()
+    });
+
+    return data;
+  } catch (error) {
+    if (await handleRateLimit(error)) {
+      return fetchMarketNews(); // Retry after rate limit
+    }
+    throw new Error(error.response?.data?.message || 'Failed to fetch market news');
+  }
+};
+
+export const getWatchlist = async () => {
+  try {
+    const response = await api.get('/api/watchlist');
     return response.data;
   } catch (error) {
-    console.error('Error fetching watchlist:', error);
-    throw error;
+    throw new Error(error.response?.data?.message || 'Failed to fetch watchlist');
+  }
+};
+
+export const saveWatchlist = async (stocks) => {
+  try {
+    const response = await api.post('/api/watchlist', { stocks });
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Failed to save watchlist');
   }
 };

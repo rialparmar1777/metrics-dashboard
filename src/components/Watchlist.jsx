@@ -1,20 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { fetchStockData, getWatchlist, saveWatchlist, fetchHistoricalData } from '../../services/api';
 import StockCard from './StockCard';
 import StockChart from './StockChart';
 import Navbar from './Navbar';
-import { FaPlus, FaTrash, FaChartLine, FaSearch, FaFilter, FaSortAmountUp, FaSortAmountDown } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaChartLine, FaSearch, FaFilter, FaSortAmountUp, FaSortAmountDown, FaSpinner } from 'react-icons/fa';
 
 const Watchlist = () => {
+  // State management
   const [watchlist, setWatchlist] = useState([]);
   const [newStock, setNewStock] = useState('');
   const [stockData, setStockData] = useState({});
   const [historicalData, setHistoricalData] = useState({});
   const [error, setError] = useState('');
-  const [sortBy, setSortBy] = useState('symbol'); // 'symbol', 'price', 'change'
+  const [sortBy, setSortBy] = useState('symbol');
   const [sortOrder, setSortOrder] = useState('asc');
   const [filterValue, setFilterValue] = useState('');
   const [selectedStock, setSelectedStock] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [portfolioStats, setPortfolioStats] = useState({
     totalValue: 0,
     totalGain: 0,
@@ -24,55 +27,59 @@ const Watchlist = () => {
 
   const userId = localStorage.getItem('userId');
 
-  // Fetch watchlist on component mount
-  useEffect(() => {
-    const fetchWatchlistData = async () => {
-      try {
-        const data = await getWatchlist(userId);
-        setWatchlist(data.stocks || []);
-      } catch (error) {
-        setError('Failed to fetch watchlist');
-        console.error('Error fetching watchlist:', error);
-      }
-    };
-
-    if (userId) {
-      fetchWatchlistData();
+  // Fetch watchlist data
+  const fetchWatchlistData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError('');
+      const data = await getWatchlist(userId);
+      setWatchlist(data.stocks || []);
+    } catch (error) {
+      setError('Failed to fetch watchlist. Please try again.');
+      console.error('Error fetching watchlist:', error);
+    } finally {
+      setIsLoading(false);
     }
   }, [userId]);
 
-  // Fetch live stock data and historical data for each stock in the watchlist
-  useEffect(() => {
-    const fetchAllData = async () => {
-      const stockDataTemp = {};
-      const historicalDataTemp = {};
-      const now = Math.floor(Date.now() / 1000);
-      const oneMonthAgo = now - 30 * 86400;
+  // Fetch stock data for all watchlist items
+  const fetchAllStockData = useCallback(async () => {
+    if (watchlist.length === 0) return;
 
-      for (const symbol of watchlist) {
-        try {
-          const [stockInfo, historical] = await Promise.all([
-            fetchStockData(symbol),
-            fetchHistoricalData(symbol, 'D', oneMonthAgo, now)
-          ]);
-          stockDataTemp[symbol] = stockInfo;
-          historicalDataTemp[symbol] = historical;
-        } catch (error) {
-          console.error(`Error fetching data for ${symbol}:`, error);
-        }
-      }
+    setIsUpdating(true);
+    const stockDataTemp = {};
+    const historicalDataTemp = {};
+    const now = Math.floor(Date.now() / 1000);
+    const oneMonthAgo = now - 30 * 86400;
+
+    try {
+      await Promise.all(
+        watchlist.map(async (symbol) => {
+          try {
+            const [stockInfo, historical] = await Promise.all([
+              fetchStockData(symbol),
+              fetchHistoricalData(symbol, 'D', oneMonthAgo, now)
+            ]);
+            stockDataTemp[symbol] = stockInfo;
+            historicalDataTemp[symbol] = historical;
+          } catch (error) {
+            console.error(`Error fetching data for ${symbol}:`, error);
+          }
+        })
+      );
+
       setStockData(stockDataTemp);
       setHistoricalData(historicalDataTemp);
       calculatePortfolioStats(stockDataTemp);
-    };
-
-    if (watchlist.length > 0) {
-      fetchAllData();
-      const interval = setInterval(fetchAllData, 5000);
-      return () => clearInterval(interval);
+    } catch (error) {
+      setError('Failed to fetch stock data. Please try again.');
+      console.error('Error fetching stock data:', error);
+    } finally {
+      setIsUpdating(false);
     }
   }, [watchlist]);
 
+  // Calculate portfolio statistics
   const calculatePortfolioStats = (data) => {
     if (Object.keys(data).length === 0) return;
 
@@ -107,7 +114,19 @@ const Watchlist = () => {
     });
   };
 
-  // Add a stock to the watchlist
+  // Initial data fetch
+  useEffect(() => {
+    fetchWatchlistData();
+  }, [fetchWatchlistData]);
+
+  // Fetch stock data when watchlist changes
+  useEffect(() => {
+    fetchAllStockData();
+    const interval = setInterval(fetchAllStockData, 30000); // Update every 30 seconds
+    return () => clearInterval(interval);
+  }, [fetchAllStockData]);
+
+  // Add a stock to watchlist
   const addStock = async () => {
     if (!newStock) {
       setError('Please enter a stock symbol');
@@ -121,29 +140,37 @@ const Watchlist = () => {
     }
 
     try {
+      setIsUpdating(true);
+      setError('');
       const updatedWatchlist = [...watchlist, symbol];
       await saveWatchlist(updatedWatchlist);
       setWatchlist(updatedWatchlist);
       setNewStock('');
-      setError('');
+      await fetchAllStockData();
     } catch (error) {
       setError('Failed to add stock to watchlist');
       console.error('Error adding stock:', error);
+    } finally {
+      setIsUpdating(false);
     }
   };
 
-  // Remove a stock from the watchlist
+  // Remove a stock from watchlist
   const removeStock = async (symbol) => {
     try {
-      const updatedWatchlist = watchlist.filter((stock) => stock !== symbol);
+      setIsUpdating(true);
+      const updatedWatchlist = watchlist.filter((s) => s !== symbol);
       await saveWatchlist(updatedWatchlist);
       setWatchlist(updatedWatchlist);
       if (selectedStock === symbol) {
         setSelectedStock(null);
       }
+      await fetchAllStockData();
     } catch (error) {
       setError('Failed to remove stock from watchlist');
       console.error('Error removing stock:', error);
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -175,9 +202,16 @@ const Watchlist = () => {
       });
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+        <FaSpinner className="animate-spin text-4xl text-blue-600" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-      <Navbar />
       
       {/* Header */}
       <header className="bg-gradient-to-r from-blue-600 to-blue-500 text-white py-8">
@@ -228,9 +262,10 @@ const Watchlist = () => {
             </div>
             <button
               onClick={addStock}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 flex items-center justify-center"
+              disabled={isUpdating}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 flex items-center justify-center disabled:opacity-50"
             >
-              <FaPlus className="mr-2" />
+              {isUpdating ? <FaSpinner className="animate-spin mr-2" /> : <FaPlus className="mr-2" />}
               Add Stock
             </button>
           </div>
@@ -282,6 +317,7 @@ const Watchlist = () => {
                   onRemove={() => removeStock(symbol)}
                   onClick={() => setSelectedStock(symbol)}
                   isSelected={selectedStock === symbol}
+                  isLoading={isUpdating}
                 />
               ))}
             </div>
@@ -295,7 +331,7 @@ const Watchlist = () => {
                 Performance Chart
               </h2>
               {selectedStock && historicalData[selectedStock] ? (
-                <StockChart data={historicalData[selectedStock]} />
+                <StockChart data={historicalData[selectedStock]} symbol={selectedStock} />
               ) : (
                 <div className="text-center text-gray-500 dark:text-gray-400 py-8">
                   Select a stock to view its performance chart

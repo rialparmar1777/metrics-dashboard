@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color-scheme: light dark;
@@ -30,6 +30,7 @@ body {
 .dark {
   background-color: #1a1a1a;
   color: #ffffff;
+  color-scheme: dark;
 }
 
 /* Custom scrollbar */
@@ -48,4 +49,9 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #888;
+}
+
+/* Transition for dark mode */
+* {
+  transition: background-color 0.3s ease-in-out, border-color 0.3s ease-in-out;
 }
