@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { FaChartLine, FaGlobe, FaArrowUp, FaArrowDown, FaDollarSign, FaNewspaper } from 'react-icons/fa';
 import StockCard from './StockCard';
 import StockChart from './StockChart';
-import { fetchStockData, fetchHistoricalData } from '../../services/api';
+import api from '../services/api';
 
 const Dashboard = () => {
   const [stockData, setStockData] = useState({});
@@ -16,10 +16,10 @@ const Dashboard = () => {
   const techStocks = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA'];
 
   const marketOverview = {
-    totalMarketCap: Object.values(stockData).reduce((sum, stock) => sum + (stock?.c || 0), 0),
-    gainers: Object.values(stockData).filter(stock => stock?.dp > 0).length,
-    losers: Object.values(stockData).filter(stock => stock?.dp < 0).length,
-    averageChange: Object.values(stockData).reduce((sum, stock) => sum + (stock?.dp || 0), 0) / Object.values(stockData).length
+    totalMarketCap: Object.values(stockData).reduce((sum, stock) => sum + (stock?.marketCap || 0), 0),
+    gainers: Object.values(stockData).filter(stock => stock?.changePercent > 0).length,
+    losers: Object.values(stockData).filter(stock => stock?.changePercent < 0).length,
+    averageChange: Object.values(stockData).reduce((sum, stock) => sum + (stock?.changePercent || 0), 0) / Object.values(stockData).length || 0
   };
 
   useEffect(() => {
@@ -27,20 +27,40 @@ const Dashboard = () => {
       setIsLoading(true);
       setError('');
       try {
-        const stockPromises = techStocks.map(symbol => fetchStockData(symbol));
+        const stockPromises = techStocks.map(symbol => api.fetchStockData(symbol));
         const stockResults = await Promise.all(stockPromises);
         
         const stockDataObj = {};
-        techStocks.forEach((symbol, index) => {
-          stockDataObj[symbol] = stockResults[index];
+        stockResults.forEach((result, index) => {
+          stockDataObj[techStocks[index]] = result;
         });
         
         setStockData(stockDataObj);
 
         // Fetch historical data for selected stock
         const now = Math.floor(Date.now() / 1000);
-        const oneMonthAgo = now - 30 * 24 * 60 * 60;
-        const historicalResult = await fetchHistoricalData(selectedStock, 'D', oneMonthAgo, now);
+        let from = now;
+        switch (selectedTimeframe) {
+          case '1D':
+            from = now - 24 * 60 * 60;
+            break;
+          case '1W':
+            from = now - 7 * 24 * 60 * 60;
+            break;
+          case '1M':
+            from = now - 30 * 24 * 60 * 60;
+            break;
+          case '3M':
+            from = now - 90 * 24 * 60 * 60;
+            break;
+          case '1Y':
+            from = now - 365 * 24 * 60 * 60;
+            break;
+          default:
+            from = now - 30 * 24 * 60 * 60;
+        }
+
+        const historicalResult = await api.getStockCandles(selectedStock, 'D', from, now);
         setHistoricalData({ [selectedStock]: historicalResult });
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -51,26 +71,18 @@ const Dashboard = () => {
     };
 
     fetchData();
-    const interval = setInterval(fetchData, 30000); // Update every 30 seconds
+    const interval = setInterval(fetchData, 60000); // Update every minute
 
     return () => clearInterval(interval);
-  }, [selectedStock]);
+  }, [selectedStock, selectedTimeframe]);
 
-  const handleStockSelect = async (symbol) => {
+  const handleStockSelect = (symbol) => {
     setSelectedStock(symbol);
-    try {
-      const now = Math.floor(Date.now() / 1000);
-      const oneMonthAgo = now - 30 * 24 * 60 * 60;
-      const historicalResult = await fetchHistoricalData(symbol, 'D', oneMonthAgo, now);
-      setHistoricalData({ [symbol]: historicalResult });
-    } catch (error) {
-      console.error('Error fetching historical data:', error);
-    }
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     );
@@ -102,7 +114,7 @@ const Dashboard = () => {
           <div className="mt-4">
             <p className="text-gray-600 dark:text-gray-400">Total Market Cap</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              ${marketOverview.totalMarketCap.toFixed(2)}B
+              ${(marketOverview.totalMarketCap / 1000).toFixed(2)}B
             </p>
           </div>
         </div>
@@ -150,7 +162,6 @@ const Dashboard = () => {
         {techStocks.map((symbol) => (
           <StockCard
             key={symbol}
-            title={symbol}
             data={stockData[symbol]}
             onClick={() => handleStockSelect(symbol)}
             isSelected={selectedStock === symbol}
