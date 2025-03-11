@@ -1,167 +1,188 @@
 import axios from 'axios';
 
-const FINNHUB_API_KEY = import.meta.env.VITE_FINNHUB_API_KEY;
-const BASE_URL = 'https://finnhub.io/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second
 
-// Create axios instance for Finnhub API
-const finnhubApi = axios.create({
-  baseURL: BASE_URL,
-  params: {
-    token: FINNHUB_API_KEY
-  }
+// Create axios instance
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  timeout: 10000 // 10 seconds
 });
 
-// Cache for storing API responses
-const cache = new Map();
-const CACHE_DURATION = 60000; // 1 minute
+// Add auth token to requests
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
-const api = {
-  async getStockQuote(symbol) {
-    const cacheKey = `quote-${symbol}`;
-    const cached = cache.get(cacheKey);
-    
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-      return cached.data;
+// Add response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Don't retry on 429 (Too Many Requests) or 403 (Forbidden)
+    if (error.response && (error.response.status === 429 || error.response.status === 403)) {
+      return Promise.reject(error);
     }
 
+    if (!originalRequest._retry && originalRequest._retryCount < MAX_RETRIES) {
+      originalRequest._retry = true;
+      originalRequest._retryCount = (originalRequest._retryCount || 0) + 1;
+
+      // Wait before retrying with exponential backoff
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * Math.pow(2, originalRequest._retryCount - 1)));
+
+      return api(originalRequest);
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+const handleError = (error, customMessage) => {
+  console.error(customMessage, error);
+  if (error.response) {
+    if (error.response.status === 429) {
+      throw new Error('Rate limit exceeded. Please try again in a few minutes.');
+    }
+    if (error.response.status === 403) {
+      throw new Error('Access forbidden. Please check your API key.');
+    }
+    // Server responded with error
+    throw new Error(error.response.data.message || error.response.data.error || customMessage);
+  } else if (error.request) {
+    // Request made but no response
+    throw new Error('No response from server. Please check your connection.');
+  } else {
+    // Other errors
+    throw new Error(error.message || customMessage);
+  }
+};
+
+// Helper function to get Unix timestamp
+const getUnixTimestamp = (date) => {
+  return Math.floor(date.getTime() / 1000);
+};
+
+const stockApi = {
+  async getStockQuote(symbol) {
     try {
-      const response = await finnhubApi.get('/quote', {
-        params: { symbol: symbol.toUpperCase() }
-      });
-
-      const data = response.data;
-      cache.set(cacheKey, {
-        data,
-        timestamp: Date.now()
-      });
-
-      return data;
+      const response = await api.get(`/stock/${symbol}/quote`);
+      return response.data;
     } catch (error) {
-      console.error(`Error fetching quote for ${symbol}:`, error);
-      throw new Error(`Failed to fetch stock data for ${symbol}`);
+      handleError(error, `Failed to fetch stock data for ${symbol}`);
     }
   },
 
   async getCompanyProfile(symbol) {
-    const cacheKey = `profile-${symbol}`;
-    const cached = cache.get(cacheKey);
-    
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-      return cached.data;
-    }
-
     try {
-      const response = await finnhubApi.get('/stock/profile2', {
-        params: { symbol: symbol.toUpperCase() }
-      });
-
-      const data = response.data;
-      cache.set(cacheKey, {
-        data,
-        timestamp: Date.now()
-      });
-
-      return data;
+      const response = await api.get(`/stock/${symbol}/profile`);
+      return response.data;
     } catch (error) {
-      console.error(`Error fetching company profile for ${symbol}:`, error);
-      throw new Error(`Failed to fetch company profile for ${symbol}`);
+      handleError(error, `Failed to fetch company profile for ${symbol}`);
     }
   },
 
-  async getStockCandles(symbol, resolution = 'D', from = Math.floor((Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000), to = Math.floor(Date.now() / 1000)) {
-    const cacheKey = `candles-${symbol}-${resolution}-${from}-${to}`;
-    const cached = cache.get(cacheKey);
-    
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-      return cached.data;
-    }
-
+  async getBatchStockData(symbols) {
     try {
-      const response = await finnhubApi.get('/stock/candle', {
-        params: {
-          symbol: symbol.toUpperCase(),
+      const response = await api.post('/stock/batch', { symbols });
+      return response.data;
+    } catch (error) {
+      handleError(error, 'Failed to fetch batch stock data');
+    }
+  },
+
+  async getStockCandles(symbol, resolution = 'D', from, to) {
+    try {
+      // Convert dates to Unix timestamps if they're Date objects
+      const fromTimestamp = from instanceof Date ? getUnixTimestamp(from) : from;
+      const toTimestamp = to instanceof Date ? getUnixTimestamp(to) : to;
+
+      const response = await api.get(`/stock/${symbol}/candles`, {
+        params: { 
           resolution,
-          from,
-          to
+          from: fromTimestamp,
+          to: toTimestamp
         }
       });
-
-      const data = response.data;
-      cache.set(cacheKey, {
-        data,
-        timestamp: Date.now()
-      });
-
-      return data;
+      return response.data;
     } catch (error) {
-      console.error(`Error fetching candles for ${symbol}:`, error);
-      throw new Error(`Failed to fetch historical data for ${symbol}`);
+      handleError(error, `Failed to fetch historical data for ${symbol}`);
     }
   },
 
   async getMarketNews(category = 'general') {
-    const cacheKey = `news-${category}`;
-    const cached = cache.get(cacheKey);
-    
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-      return cached.data;
-    }
-
     try {
-      const response = await finnhubApi.get('/news', {
+      const response = await api.get('/news', {
         params: { category }
       });
-
-      const data = response.data;
-      cache.set(cacheKey, {
-        data,
-        timestamp: Date.now()
-      });
-
-      return data;
+      return response.data;
     } catch (error) {
-      console.error('Error fetching market news:', error);
-      throw new Error('Failed to fetch market news');
+      handleError(error, 'Failed to fetch market news');
     }
   },
 
   async getCompanyNews(symbol, from, to) {
-    const cacheKey = `company-news-${symbol}-${from}-${to}`;
-    const cached = cache.get(cacheKey);
-    
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-      return cached.data;
-    }
-
     try {
-      const response = await finnhubApi.get('/company-news', {
-        params: {
-          symbol: symbol.toUpperCase(),
-          from,
-          to
-        }
+      const response = await api.get(`/stock/${symbol}/news`, {
+        params: { from, to }
       });
-
-      const data = response.data;
-      cache.set(cacheKey, {
-        data,
-        timestamp: Date.now()
-      });
-
-      return data;
+      return response.data;
     } catch (error) {
-      console.error(`Error fetching news for ${symbol}:`, error);
-      throw new Error(`Failed to fetch company news for ${symbol}`);
+      handleError(error, `Failed to fetch company news for ${symbol}`);
+    }
+  },
+
+  async getWatchlist() {
+    try {
+      const response = await api.get('/watchlist');
+      return response.data;
+    } catch (error) {
+      handleError(error, 'Failed to fetch watchlist');
+    }
+  },
+
+  async addToWatchlist(symbol) {
+    try {
+      const response = await api.post('/watchlist', { symbol });
+      return response.data;
+    } catch (error) {
+      handleError(error, 'Failed to add to watchlist');
+    }
+  },
+
+  async removeFromWatchlist(symbol) {
+    try {
+      const response = await api.delete(`/watchlist/${symbol}`);
+      return response.data;
+    } catch (error) {
+      handleError(error, 'Failed to remove from watchlist');
     }
   },
 
   // Helper function to fetch all required data for a stock
   async fetchStockData(symbol) {
     try {
-      const [quote, profile] = await Promise.all([
-        this.getStockQuote(symbol),
-        this.getCompanyProfile(symbol)
-      ]);
+      const response = await this.getBatchStockData([symbol]);
+      const stockData = response[0];
+
+      if (stockData.error) {
+        throw new Error(stockData.error);
+      }
+
+      const { quote, profile } = stockData;
+
+      if (!quote || !profile) {
+        throw new Error(`No data available for ${symbol}`);
+      }
 
       return {
         symbol,
@@ -181,9 +202,64 @@ const api = {
       };
     } catch (error) {
       console.error(`Error fetching data for ${symbol}:`, error);
-      throw new Error('Failed to fetch stock data');
+      throw error;
+    }
+  },
+
+  // Helper function to fetch data for multiple stocks
+  async fetchMultipleStockData(symbols) {
+    try {
+      const response = await this.getBatchStockData(symbols);
+      return response.map(stockData => {
+        if (stockData.error) {
+          return {
+            symbol: stockData.symbol,
+            error: stockData.error
+          };
+        }
+
+        const { symbol, quote, profile } = stockData;
+
+        if (!quote || !profile) {
+          return {
+            symbol,
+            error: `No data available for ${symbol}`
+          };
+        }
+
+        return {
+          symbol,
+          currentPrice: quote.c,
+          change: quote.d,
+          changePercent: quote.dp,
+          high: quote.h,
+          low: quote.l,
+          open: quote.o,
+          previousClose: quote.pc,
+          companyName: profile.name,
+          currency: profile.currency,
+          exchange: profile.exchange,
+          industry: profile.finnhubIndustry,
+          marketCap: profile.marketCapitalization,
+          logo: profile.logo
+        };
+      });
+    } catch (error) {
+      console.error('Error fetching multiple stock data:', error);
+      throw error;
+    }
+  },
+
+  // Check server health
+  async checkHealth() {
+    try {
+      const response = await api.get('/health');
+      return response.data.status === 'ok';
+    } catch (error) {
+      console.error('Health check failed:', error);
+      return false;
     }
   }
 };
 
-export default api; 
+export default stockApi; 
