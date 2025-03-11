@@ -1,10 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { fetchStockData, getWatchlist, saveWatchlist, fetchHistoricalData } from '../../services/api';
+import React, { useState, useEffect, useCallback } from 'react';
+import { FaPlus, FaTrash, FaSearch, FaFilter, FaSortAmountUp, FaSortAmountDown, FaSpinner } from 'react-icons/fa';
 import StockCard from './StockCard';
-import StockChart from './StockChart';
-import Footer from './Footer';
-import Navbar from './Navbar';
-import { FaPlus, FaTrash, FaChartLine, FaSearch, FaFilter, FaSortAmountUp, FaSortAmountDown, FaSpinner } from 'react-icons/fa';
 import api from '../services/api';
 
 const Watchlist = () => {
@@ -12,23 +8,32 @@ const Watchlist = () => {
   const [watchlist, setWatchlist] = useState([]);
   const [newStock, setNewStock] = useState('');
   const [stockData, setStockData] = useState({});
-  const [historicalData, setHistoricalData] = useState({});
   const [error, setError] = useState('');
   const [sortBy, setSortBy] = useState('symbol');
   const [sortOrder, setSortOrder] = useState('asc');
   const [filterValue, setFilterValue] = useState('');
-  const [selectedStock, setSelectedStock] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [portfolioStats, setPortfolioStats] = useState({
-    totalValue: 0,
-    totalGain: 0,
-    topPerformer: null,
-    worstPerformer: null
-  });
   const [searchResults, setSearchResults] = useState([]);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [selectedStock, setSelectedStock] = useState(null);
 
-  const userId = localStorage.getItem('userId');
+  // Portfolio statistics
+  const portfolioStats = {
+    totalValue: Object.values(stockData).reduce((sum, stock) => sum + (stock?.currentPrice || 0), 0),
+    totalGain: Object.values(stockData).reduce((sum, stock) => {
+      const change = ((stock?.currentPrice || 0) - (stock?.previousClose || 0)) / (stock?.previousClose || 1) * 100;
+      return sum + change;
+    }, 0) / (Object.keys(stockData).length || 1),
+    topPerformer: Object.entries(stockData).reduce((best, [symbol, data]) => {
+      const change = ((data?.currentPrice || 0) - (data?.previousClose || 0)) / (data?.previousClose || 1) * 100;
+      return change > (best?.change || -Infinity) ? { symbol, change } : best;
+    }, null)?.symbol,
+    worstPerformer: Object.entries(stockData).reduce((worst, [symbol, data]) => {
+      const change = ((data?.currentPrice || 0) - (data?.previousClose || 0)) / (data?.previousClose || 1) * 100;
+      return change < (worst?.change || Infinity) ? { symbol, change } : worst;
+    }, null)?.symbol
+  };
 
   // Fetch watchlist data
   const fetchWatchlistData = useCallback(async () => {
@@ -50,22 +55,16 @@ const Watchlist = () => {
     if (watchlist.length === 0) return;
 
     setIsUpdating(true);
-    const stockDataTemp = {};
-    const historicalDataTemp = {};
-    const now = Math.floor(Date.now() / 1000);
-    const oneMonthAgo = now - 30 * 86400;
-
     try {
       const results = await api.fetchMultipleStockData(watchlist);
+      const stockDataObj = {};
       results.forEach(result => {
         if (!result.error) {
-          stockDataTemp[result.symbol] = result;
-          historicalDataTemp[result.symbol] = result.historicalData;
+          stockDataObj[result.symbol] = result;
         }
       });
-      setStockData(stockDataTemp);
-      setHistoricalData(historicalDataTemp);
-      calculatePortfolioStats(stockDataTemp);
+      setStockData(stockDataObj);
+      setLastUpdated(new Date());
     } catch (error) {
       setError('Failed to fetch stock data. Please try again.');
       console.error('Error fetching stock data:', error);
@@ -73,53 +72,6 @@ const Watchlist = () => {
       setIsUpdating(false);
     }
   }, [watchlist]);
-
-  // Calculate portfolio statistics
-  const calculatePortfolioStats = (data) => {
-    if (Object.keys(data).length === 0) return;
-
-    let total = 0;
-    let totalChange = 0;
-    let best = { symbol: '', change: -Infinity };
-    let worst = { symbol: '', change: Infinity };
-
-    Object.entries(data).forEach(([symbol, stock]) => {
-      if (!stock) return;
-      
-      const price = stock.currentPrice || 0;
-      const prevPrice = stock.previousClose || 0;
-      const change = ((price - prevPrice) / prevPrice) * 100;
-      
-      total += price;
-      totalChange += change;
-
-      if (change > best.change) {
-        best = { symbol, change };
-      }
-      if (change < worst.change) {
-        worst = { symbol, change };
-      }
-    });
-
-    setPortfolioStats({
-      totalValue: total,
-      totalGain: totalChange / Object.keys(data).length,
-      topPerformer: best.symbol,
-      worstPerformer: worst.symbol
-    });
-  };
-
-  // Initial data fetch
-  useEffect(() => {
-    fetchWatchlistData();
-  }, [fetchWatchlistData]);
-
-  // Fetch stock data when watchlist changes
-  useEffect(() => {
-    fetchAllStockData();
-    const interval = setInterval(fetchAllStockData, 30000); // Update every 30 seconds
-    return () => clearInterval(interval);
-  }, [fetchAllStockData]);
 
   // Search for stocks
   const handleSearch = async (query) => {
@@ -169,9 +121,6 @@ const Watchlist = () => {
       setIsUpdating(true);
       await api.removeFromWatchlist(symbol);
       await fetchWatchlistData();
-      if (selectedStock === symbol) {
-        setSelectedStock(null);
-      }
     } catch (error) {
       setError('Failed to remove stock from watchlist');
       console.error('Error removing stock:', error);
@@ -206,6 +155,18 @@ const Watchlist = () => {
       });
   };
 
+  // Initial data fetch
+  useEffect(() => {
+    fetchWatchlistData();
+  }, [fetchWatchlistData]);
+
+  // Fetch stock data when watchlist changes
+  useEffect(() => {
+    fetchAllStockData();
+    const interval = setInterval(fetchAllStockData, 30000); // Update every 30 seconds
+    return () => clearInterval(interval);
+  }, [fetchAllStockData]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
@@ -216,11 +177,15 @@ const Watchlist = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-      
       {/* Header */}
       <header className="bg-gradient-to-r from-blue-600 to-blue-500 text-white py-8">
         <div className="container mx-auto px-4">
           <h1 className="text-3xl font-bold mb-4">My Watchlist</h1>
+          {lastUpdated && (
+            <p className="text-sm opacity-70 mb-4">
+              Last updated: {lastUpdated.toLocaleTimeString()}
+            </p>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-white/20 rounded-lg p-4">
               <h3 className="text-sm opacity-70">Portfolio Value</h3>
@@ -332,42 +297,59 @@ const Watchlist = () => {
           </div>
         </div>
 
-        {/* Stock List and Chart */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Stock Cards */}
-          <div className="lg:col-span-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {getSortedAndFilteredStocks().map((symbol) => (
-                <StockCard
-                  key={symbol}
-                  title={symbol}
-                  data={stockData[symbol]}
-                  onRemove={() => removeStock(symbol)}
-                  onClick={() => setSelectedStock(symbol)}
-                  isSelected={selectedStock === symbol}
-                  isLoading={isUpdating}
-                />
-              ))}
-            </div>
+        {/* Stock List */}
+        {watchlist.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-600 dark:text-gray-400">Your watchlist is empty. Add some stocks to get started!</p>
           </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {getSortedAndFilteredStocks().map((symbol) => (
+              <StockCard
+                key={symbol}
+                data={stockData[symbol]}
+                onRemove={removeStock}
+                onSelect={(symbol) => setSelectedStock(selectedStock === symbol ? null : symbol)}
+                isSelected={selectedStock === symbol}
+              />
+            ))}
+          </div>
+        )}
 
-          {/* Chart Panel */}
-          <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 sticky top-8">
-              <h2 className="text-xl font-semibold mb-4 flex items-center">
-                <FaChartLine className="mr-2" />
-                Performance Chart
-              </h2>
-              {selectedStock && historicalData[selectedStock] ? (
-                <StockChart data={historicalData[selectedStock]} symbol={selectedStock} />
-              ) : (
-                <div className="text-center text-gray-500 dark:text-gray-400 py-8">
-                  Select a stock to view its performance chart
-                </div>
-              )}
+        {/* Selected Stock Details */}
+        {selectedStock && stockData[selectedStock] && (
+          <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
+              {stockData[selectedStock].companyName} ({selectedStock})
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div>
+                <h3 className="text-sm text-gray-500 dark:text-gray-400">Market Cap</h3>
+                <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                  ${(stockData[selectedStock].marketCap / 1e9).toFixed(2)}B
+                </p>
+              </div>
+              <div>
+                <h3 className="text-sm text-gray-500 dark:text-gray-400">Volume</h3>
+                <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {(stockData[selectedStock].volume / 1e6).toFixed(1)}M
+                </p>
+              </div>
+              <div>
+                <h3 className="text-sm text-gray-500 dark:text-gray-400">52 Week High</h3>
+                <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                  ${stockData[selectedStock].high?.toFixed(2)}
+                </p>
+              </div>
+              <div>
+                <h3 className="text-sm text-gray-500 dark:text-gray-400">52 Week Low</h3>
+                <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                  ${stockData[selectedStock].low?.toFixed(2)}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </main>
     </div>
   );
