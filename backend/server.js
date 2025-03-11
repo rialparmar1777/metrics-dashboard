@@ -4,6 +4,13 @@ import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
 import axios from 'axios';
 import NodeCache from 'node-cache';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import fs from 'fs/promises';
+
+// ES modules replacement for __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Load environment variables
 dotenv.config();
@@ -13,36 +20,58 @@ const port = process.env.PORT || 5001;
 
 // Initialize cache
 const cache = new NodeCache({
-  stdTTL: 60, // Cache for 60 seconds
-  checkperiod: 120 // Check for expired entries every 120 seconds
+  stdTTL: 300, // Cache for 5 minutes
+  checkperiod: 600 // Check for expired entries every 10 minutes
 });
 
-// In-memory watchlist store (replace with database in production)
-let watchlist = new Set();
-
 // Ensure required environment variables are set
-const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || 'cv7p1npr01qpecigufjgcv7p1npr01qpecigufk0';
+const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
+if (!FINNHUB_API_KEY) {
+  console.error('ERROR: FINNHUB_API_KEY is not set in environment variables');
+  process.exit(1);
+}
 
-// Create Finnhub API client with rate limiting
+// Create Finnhub API client
 const finnhubClient = axios.create({
   baseURL: 'https://finnhub.io/api/v1',
-  params: {
-    token: FINNHUB_API_KEY
+  headers: {
+    'X-Finnhub-Token': FINNHUB_API_KEY
   },
   timeout: 10000
 });
+
+// Add request interceptor to log API calls in development
+finnhubClient.interceptors.request.use(request => {
+  console.log('Making request to:', request.url);
+  return request;
+});
+
+// Add response interceptor to handle errors
+finnhubClient.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response) {
+      console.error('Finnhub API error:', {
+        status: error.response.status,
+        data: error.response.data,
+        url: error.config.url
+      });
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Rate limiting - adjusted to be more lenient
+// Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 300, // allow 300 requests per windowMs
   message: {
-    error: 'Too Many Requests',
-    message: 'Please try again later'
+    error: 'Rate Limit Exceeded',
+    message: 'Too many requests. Please try again later.'
   }
 });
 app.use(limiter);
@@ -53,16 +82,27 @@ const errorHandler = (err, req, res, next) => {
   
   if (err.response) {
     // Finnhub API error
-    return res.status(err.response.status).json({
-      error: err.response.data.error || 'API Error',
+    const status = err.response.status;
+    const message = err.response.data?.error || 'API Error';
+    
+    if (status === 429) {
+      return res.status(429).json({
+        error: 'Rate Limit Exceeded',
+        message: 'Too many requests. Please try again later.',
+        retryAfter: err.response.headers['retry-after'] || 60
+      });
+    }
+
+    if (status === 401) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Invalid API key or unauthorized access'
+      });
+    }
+    
+    return res.status(status).json({
+      error: message,
       message: 'Failed to fetch data from Finnhub'
-    });
-  }
-  
-  if (err.code === 'ECONNABORTED') {
-    return res.status(408).json({
-      error: 'Request Timeout',
-      message: 'The request to Finnhub API timed out'
     });
   }
   
@@ -72,230 +112,247 @@ const errorHandler = (err, req, res, next) => {
   });
 };
 
-// Helper function to validate timestamp
-const validateTimestamp = (timestamp) => {
-  const now = Math.floor(Date.now() / 1000);
-  return timestamp <= now ? timestamp : now;
-};
-
-// Helper function to get cached data or fetch from API
-const getCachedOrFetch = async (cacheKey, fetchFn) => {
-  const cachedData = cache.get(cacheKey);
-  if (cachedData) {
-    return cachedData;
-  }
-
-  const data = await fetchFn();
-  cache.set(cacheKey, data);
-  return data;
-};
-
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    apiKey: FINNHUB_API_KEY ? 'configured' : 'missing'
+  });
+});
+
+// Symbol lookup endpoint
+app.get('/api/search', async (req, res, next) => {
+  try {
+    const { q } = req.query;
+    if (!q) {
+      return res.status(400).json({ error: 'Query parameter is required' });
+    }
+
+    const cacheKey = `search_${q}`;
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      return res.json(cachedData);
+    }
+
+    const response = await finnhubClient.get('/search', {
+      params: { q }
+    });
+
+    if (response.data && response.data.result) {
+      cache.set(cacheKey, response.data);
+      res.json(response.data);
+    } else {
+      res.json({ result: [] });
+    }
+  } catch (error) {
+    if (error.response?.status === 401) {
+      console.error('Invalid API key:', FINNHUB_API_KEY);
+    }
+    next(error);
+  }
 });
 
 // Stock quote endpoint
-app.get('/api/stock/:symbol/quote', async (req, res, next) => {
+app.get('/api/quote/:symbol', async (req, res, next) => {
   try {
     const { symbol } = req.params;
-    const cacheKey = `quote-${symbol}`;
-    
-    const data = await getCachedOrFetch(cacheKey, async () => {
-      const response = await finnhubClient.get('/quote', {
-        params: { symbol: symbol.toUpperCase() }
-      });
-      return response.data;
-    });
-    
-    res.json(data);
+    if (!symbol) {
+      return res.status(400).json({ error: 'Symbol parameter is required' });
+    }
+
+    const cacheKey = `quote_${symbol}`;
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      return res.json(cachedData);
+    }
+
+    try {
+      const [quoteResponse, profileResponse] = await Promise.all([
+        finnhubClient.get('/quote', { params: { symbol } }),
+        finnhubClient.get('/stock/profile2', { params: { symbol } })
+      ]);
+
+      const quote = quoteResponse.data;
+      const profile = profileResponse.data;
+
+      if (!quote.c) {
+        return res.status(404).json({
+          error: 'Stock Not Found',
+          message: `No data available for symbol: ${symbol}`
+        });
+      }
+
+      const stockData = {
+        symbol,
+        currentPrice: quote.c,
+        change: quote.d,
+        changePercent: quote.dp,
+        previousClose: quote.pc,
+        open: quote.o,
+        high: quote.h,
+        low: quote.l,
+        companyName: profile?.name || symbol,
+        currency: profile?.currency || 'USD',
+        marketCap: profile?.marketCapitalization || 0
+      };
+
+      cache.set(cacheKey, stockData);
+      res.json(stockData);
+    } catch (error) {
+      if (error.response?.status === 401) {
+        console.error('Invalid API key:', FINNHUB_API_KEY);
+      }
+      throw error;
+    }
   } catch (error) {
     next(error);
   }
 });
 
-// Company profile endpoint
-app.get('/api/stock/:symbol/profile', async (req, res, next) => {
-  try {
-    const { symbol } = req.params;
-    const cacheKey = `profile-${symbol}`;
-    
-    const data = await getCachedOrFetch(cacheKey, async () => {
-      const response = await finnhubClient.get('/stock/profile2', {
-        params: { symbol: symbol.toUpperCase() }
-      });
-      return response.data;
-    });
-    
-    res.json(data);
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Batch endpoint for multiple stocks
-app.post('/api/stock/batch', async (req, res, next) => {
+// Batch quote endpoint
+app.post('/api/quotes', async (req, res, next) => {
   try {
     const { symbols } = req.body;
-    
     if (!Array.isArray(symbols) || symbols.length === 0) {
-      return res.status(400).json({
-        error: 'Invalid Request',
-        message: 'Please provide an array of stock symbols'
-      });
+      return res.status(400).json({ error: 'Symbols array is required' });
     }
-    
-    const results = await Promise.all(
+
+    const quotes = await Promise.all(
       symbols.map(async (symbol) => {
+        const cacheKey = `quote_${symbol}`;
+        const cachedData = cache.get(cacheKey);
+        if (cachedData) {
+          return cachedData;
+        }
+
         try {
-          const [quote, profile] = await Promise.all([
-            getCachedOrFetch(`quote-${symbol}`, async () => {
-              const response = await finnhubClient.get('/quote', {
-                params: { symbol: symbol.toUpperCase() }
-              });
-              return response.data;
-            }),
-            getCachedOrFetch(`profile-${symbol}`, async () => {
-              const response = await finnhubClient.get('/stock/profile2', {
-                params: { symbol: symbol.toUpperCase() }
-              });
-              return response.data;
-            })
+          const [quoteResponse, profileResponse] = await Promise.all([
+            finnhubClient.get('/quote', { params: { symbol } }),
+            finnhubClient.get('/stock/profile2', { params: { symbol } })
           ]);
 
-          return {
+          const quote = quoteResponse.data;
+          const profile = profileResponse.data;
+
+          if (!quote.c) {
+            return {
+              symbol,
+              error: 'No data available'
+            };
+          }
+
+          const stockData = {
             symbol,
-            quote,
-            profile
+            currentPrice: quote.c,
+            change: quote.d,
+            changePercent: quote.dp,
+            previousClose: quote.pc,
+            open: quote.o,
+            high: quote.h,
+            low: quote.l,
+            companyName: profile?.name || symbol,
+            currency: profile?.currency || 'USD',
+            marketCap: profile?.marketCapitalization || 0
           };
+
+          cache.set(cacheKey, stockData);
+          return stockData;
         } catch (error) {
+          console.error(`Error fetching data for ${symbol}:`, error.message);
           return {
             symbol,
-            error: error.message
+            error: error.response?.data?.error || 'Failed to fetch data'
           };
         }
       })
     );
-    
-    res.json(results);
+
+    res.json(quotes);
   } catch (error) {
     next(error);
   }
-});
-
-// Stock candles endpoint
-app.get('/api/stock/:symbol/candles', async (req, res, next) => {
-  try {
-    const { symbol } = req.params;
-    let { resolution, from, to } = req.query;
-    
-    if (!resolution || !from || !to) {
-      return res.status(400).json({
-        error: 'Missing Parameters',
-        message: 'Resolution, from, and to parameters are required'
-      });
-    }
-
-    // Validate and adjust timestamps
-    from = validateTimestamp(Number(from));
-    to = validateTimestamp(Number(to));
-    
-    const cacheKey = `candles-${symbol}-${resolution}-${from}-${to}`;
-    
-    const data = await getCachedOrFetch(cacheKey, async () => {
-      const response = await finnhubClient.get('/stock/candle', {
-        params: {
-          symbol: symbol.toUpperCase(),
-          resolution,
-          from,
-          to
-        }
-      });
-      return response.data;
-    });
-    
-    if (data.s === 'no_data') {
-      return res.status(404).json({
-        error: 'No Data',
-        message: 'No historical data available for the specified timeframe'
-      });
-    }
-    
-    res.json(data);
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Watchlist endpoints
-app.get('/api/watchlist', (req, res) => {
-  res.json(Array.from(watchlist));
-});
-
-app.post('/api/watchlist', (req, res) => {
-  const { symbol } = req.body;
-  if (!symbol) {
-    return res.status(400).json({
-      error: 'Missing Symbol',
-      message: 'Please provide a stock symbol'
-    });
-  }
-  watchlist.add(symbol.toUpperCase());
-  res.json(Array.from(watchlist));
-});
-
-app.delete('/api/watchlist/:symbol', (req, res) => {
-  const { symbol } = req.params;
-  watchlist.delete(symbol.toUpperCase());
-  res.json(Array.from(watchlist));
 });
 
 // Market news endpoint
-app.get('/api/news', async (req, res, next) => {
+app.get('/api/market-news', async (req, res, next) => {
   try {
-    const { category = 'general' } = req.query;
-    const cacheKey = `news-${category}`;
-    
-    const data = await getCachedOrFetch(cacheKey, async () => {
-      const response = await finnhubClient.get('/news', {
-        params: { category }
-      });
-      return response.data;
+    const response = await finnhubClient.get('/news', {
+      params: {
+        category: 'general'
+      }
     });
-    
-    res.json(data);
+
+    res.json(response.data);
   } catch (error) {
     next(error);
   }
 });
 
-// Company news endpoint
-app.get('/api/stock/:symbol/news', async (req, res, next) => {
+// Watchlist file path
+const WATCHLIST_FILE = join(__dirname, 'watchlist.json');
+
+// Helper function to read watchlist
+async function readWatchlist() {
+  try {
+    const data = await fs.readFile(WATCHLIST_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      // If file doesn't exist, create it with empty watchlist
+      await fs.writeFile(WATCHLIST_FILE, JSON.stringify({ stocks: [] }));
+      return { stocks: [] };
+    }
+    throw error;
+  }
+}
+
+// Helper function to write watchlist
+async function writeWatchlist(watchlist) {
+  await fs.writeFile(WATCHLIST_FILE, JSON.stringify(watchlist, null, 2));
+}
+
+// Watchlist endpoints
+app.get('/api/watchlist', async (req, res, next) => {
+  try {
+    const watchlist = await readWatchlist();
+    res.json(watchlist.stocks);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/watchlist', async (req, res, next) => {
+  try {
+    const { symbol } = req.body;
+    if (!symbol) {
+      return res.status(400).json({ error: 'Symbol is required' });
+    }
+
+    const watchlist = await readWatchlist();
+    if (watchlist.stocks.includes(symbol)) {
+      return res.status(400).json({ error: 'Symbol already in watchlist' });
+    }
+
+    watchlist.stocks.push(symbol);
+    await writeWatchlist(watchlist);
+    res.json(watchlist.stocks);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/api/watchlist/:symbol', async (req, res, next) => {
   try {
     const { symbol } = req.params;
-    const { from, to } = req.query;
-    
-    if (!from || !to) {
-      return res.status(400).json({
-        error: 'Missing Parameters',
-        message: 'From and to dates are required'
-      });
+    if (!symbol) {
+      return res.status(400).json({ error: 'Symbol is required' });
     }
-    
-    const cacheKey = `news-${symbol}-${from}-${to}`;
-    
-    const data = await getCachedOrFetch(cacheKey, async () => {
-      const response = await finnhubClient.get('/company-news', {
-        params: {
-          symbol: symbol.toUpperCase(),
-          from,
-          to
-        }
-      });
-      return response.data;
-    });
-    
-    res.json(data);
+
+    const watchlist = await readWatchlist();
+    watchlist.stocks = watchlist.stocks.filter(s => s !== symbol);
+    await writeWatchlist(watchlist);
+    res.json(watchlist.stocks);
   } catch (error) {
     next(error);
   }
@@ -307,15 +364,14 @@ app.use(errorHandler);
 // Start server
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
+  console.log(`API Key status: ${FINNHUB_API_KEY ? 'configured' : 'missing'}`);
   console.log('API endpoints:');
   console.log('- GET /api/health');
-  console.log('- GET /api/stock/:symbol/quote');
-  console.log('- GET /api/stock/:symbol/profile');
-  console.log('- POST /api/stock/batch');
-  console.log('- GET /api/stock/:symbol/candles');
+  console.log('- GET /api/search');
+  console.log('- GET /api/quote/:symbol');
+  console.log('- POST /api/quotes');
+  console.log('- GET /api/market-news');
   console.log('- GET /api/watchlist');
   console.log('- POST /api/watchlist');
   console.log('- DELETE /api/watchlist/:symbol');
-  console.log('- GET /api/news');
-  console.log('- GET /api/stock/:symbol/news');
 }); 

@@ -5,6 +5,7 @@ import StockChart from './StockChart';
 import Footer from './Footer';
 import Navbar from './Navbar';
 import { FaPlus, FaTrash, FaChartLine, FaSearch, FaFilter, FaSortAmountUp, FaSortAmountDown, FaSpinner } from 'react-icons/fa';
+import api from '../services/api';
 
 const Watchlist = () => {
   // State management
@@ -25,6 +26,7 @@ const Watchlist = () => {
     topPerformer: null,
     worstPerformer: null
   });
+  const [searchResults, setSearchResults] = useState([]);
 
   const userId = localStorage.getItem('userId');
 
@@ -33,15 +35,15 @@ const Watchlist = () => {
     try {
       setIsLoading(true);
       setError('');
-      const data = await getWatchlist(userId);
-      setWatchlist(data.stocks || []);
+      const data = await api.getWatchlist();
+      setWatchlist(data);
     } catch (error) {
       setError('Failed to fetch watchlist. Please try again.');
       console.error('Error fetching watchlist:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [userId]);
+  }, []);
 
   // Fetch stock data for all watchlist items
   const fetchAllStockData = useCallback(async () => {
@@ -54,21 +56,13 @@ const Watchlist = () => {
     const oneMonthAgo = now - 30 * 86400;
 
     try {
-      await Promise.all(
-        watchlist.map(async (symbol) => {
-          try {
-            const [stockInfo, historical] = await Promise.all([
-              fetchStockData(symbol),
-              fetchHistoricalData(symbol, 'D', oneMonthAgo, now)
-            ]);
-            stockDataTemp[symbol] = stockInfo;
-            historicalDataTemp[symbol] = historical;
-          } catch (error) {
-            console.error(`Error fetching data for ${symbol}:`, error);
-          }
-        })
-      );
-
+      const results = await api.fetchMultipleStockData(watchlist);
+      results.forEach(result => {
+        if (!result.error) {
+          stockDataTemp[result.symbol] = result;
+          historicalDataTemp[result.symbol] = result.historicalData;
+        }
+      });
       setStockData(stockDataTemp);
       setHistoricalData(historicalDataTemp);
       calculatePortfolioStats(stockDataTemp);
@@ -92,8 +86,8 @@ const Watchlist = () => {
     Object.entries(data).forEach(([symbol, stock]) => {
       if (!stock) return;
       
-      const price = stock.c || 0;
-      const prevPrice = stock.pc || 0;
+      const price = stock.currentPrice || 0;
+      const prevPrice = stock.previousClose || 0;
       const change = ((price - prevPrice) / prevPrice) * 100;
       
       total += price;
@@ -127,14 +121,28 @@ const Watchlist = () => {
     return () => clearInterval(interval);
   }, [fetchAllStockData]);
 
+  // Search for stocks
+  const handleSearch = async (query) => {
+    if (!query) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      const results = await api.searchSymbol(query);
+      setSearchResults(results.result || []);
+    } catch (error) {
+      console.error('Error searching stocks:', error);
+    }
+  };
+
   // Add a stock to watchlist
-  const addStock = async () => {
-    if (!newStock) {
+  const addStock = async (symbol) => {
+    if (!symbol) {
       setError('Please enter a stock symbol');
       return;
     }
 
-    const symbol = newStock.toUpperCase();
     if (watchlist.includes(symbol)) {
       setError('Stock already in watchlist');
       return;
@@ -143,11 +151,10 @@ const Watchlist = () => {
     try {
       setIsUpdating(true);
       setError('');
-      const updatedWatchlist = [...watchlist, symbol];
-      await saveWatchlist(updatedWatchlist);
-      setWatchlist(updatedWatchlist);
+      await api.addToWatchlist(symbol);
+      await fetchWatchlistData();
       setNewStock('');
-      await fetchAllStockData();
+      setSearchResults([]);
     } catch (error) {
       setError('Failed to add stock to watchlist');
       console.error('Error adding stock:', error);
@@ -160,13 +167,11 @@ const Watchlist = () => {
   const removeStock = async (symbol) => {
     try {
       setIsUpdating(true);
-      const updatedWatchlist = watchlist.filter((s) => s !== symbol);
-      await saveWatchlist(updatedWatchlist);
-      setWatchlist(updatedWatchlist);
+      await api.removeFromWatchlist(symbol);
+      await fetchWatchlistData();
       if (selectedStock === symbol) {
         setSelectedStock(null);
       }
-      await fetchAllStockData();
     } catch (error) {
       setError('Failed to remove stock from watchlist');
       console.error('Error removing stock:', error);
@@ -188,12 +193,10 @@ const Watchlist = () => {
         let comparison = 0;
         switch (sortBy) {
           case 'price':
-            comparison = (aData.c || 0) - (bData.c || 0);
+            comparison = (aData.currentPrice || 0) - (bData.currentPrice || 0);
             break;
           case 'change':
-            const aChange = ((aData.c - aData.pc) / aData.pc) * 100;
-            const bChange = ((bData.c - bData.pc) / bData.pc) * 100;
-            comparison = aChange - bChange;
+            comparison = (aData.changePercent || 0) - (bData.changePercent || 0);
             break;
           default:
             comparison = a.localeCompare(b);
@@ -251,23 +254,47 @@ const Watchlist = () => {
 
         {/* Add Stock Form */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-grow">
+          <h2 className="text-xl font-semibold mb-4 flex items-center text-gray-900 dark:text-white">
+            <FaPlus className="mr-2" />
+            Add Stock to Watchlist
+          </h2>
+          <div className="flex gap-4">
+            <div className="flex-1 relative">
               <input
                 type="text"
                 value={newStock}
-                onChange={(e) => setNewStock(e.target.value)}
-                placeholder="Enter stock symbol (e.g., AAPL)"
-                className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                onChange={(e) => {
+                  setNewStock(e.target.value);
+                  handleSearch(e.target.value);
+                }}
+                placeholder="Enter stock symbol..."
+                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               />
+              {searchResults.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+                  {searchResults.map((result) => (
+                    <button
+                      key={result.symbol}
+                      onClick={() => {
+                        setNewStock(result.symbol);
+                        setSearchResults([]);
+                        addStock(result.symbol);
+                      }}
+                      className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <div className="font-semibold">{result.symbol}</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">{result.description}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <button
-              onClick={addStock}
+              onClick={() => addStock(newStock)}
               disabled={isUpdating}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 flex items-center justify-center disabled:opacity-50"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
-              {isUpdating ? <FaSpinner className="animate-spin mr-2" /> : <FaPlus className="mr-2" />}
-              Add Stock
+              {isUpdating ? <FaSpinner className="animate-spin" /> : 'Add'}
             </button>
           </div>
         </div>

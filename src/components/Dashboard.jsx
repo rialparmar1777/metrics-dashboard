@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FaChartLine, FaGlobe, FaArrowUp, FaArrowDown, FaDollarSign, FaNewspaper } from 'react-icons/fa';
+import { FaChartLine, FaGlobe, FaArrowUp, FaArrowDown, FaDollarSign } from 'react-icons/fa';
 import StockCard from './StockCard';
-import StockChart from './StockChart';
 import api from '../services/api';
 
 const Dashboard = () => {
   const [stockData, setStockData] = useState({});
-  const [historicalData, setHistoricalData] = useState({});
-  const [selectedTimeframe, setSelectedTimeframe] = useState('1M');
-  const [selectedStock, setSelectedStock] = useState('AAPL');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const techStocks = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA'];
 
@@ -27,44 +24,28 @@ const Dashboard = () => {
       setIsLoading(true);
       setError('');
       try {
-        const stockPromises = techStocks.map(symbol => api.fetchStockData(symbol));
-        const stockResults = await Promise.all(stockPromises);
+        // Check server health first
+        const isHealthy = await api.checkHealth();
+        if (!isHealthy) {
+          throw new Error('Server is not responding. Please try again later.');
+        }
+
+        // Fetch stock data for all tech stocks
+        const results = await api.fetchMultipleStockData(techStocks);
         
+        // Convert array to object
         const stockDataObj = {};
-        stockResults.forEach((result, index) => {
-          stockDataObj[techStocks[index]] = result;
+        results.forEach(result => {
+          if (!result.error) {
+            stockDataObj[result.symbol] = result;
+          }
         });
         
         setStockData(stockDataObj);
-
-        // Fetch historical data for selected stock
-        const now = Math.floor(Date.now() / 1000);
-        let from = now;
-        switch (selectedTimeframe) {
-          case '1D':
-            from = now - 24 * 60 * 60;
-            break;
-          case '1W':
-            from = now - 7 * 24 * 60 * 60;
-            break;
-          case '1M':
-            from = now - 30 * 24 * 60 * 60;
-            break;
-          case '3M':
-            from = now - 90 * 24 * 60 * 60;
-            break;
-          case '1Y':
-            from = now - 365 * 24 * 60 * 60;
-            break;
-          default:
-            from = now - 30 * 24 * 60 * 60;
-        }
-
-        const historicalResult = await api.getStockCandles(selectedStock, 'D', from, now);
-        setHistoricalData({ [selectedStock]: historicalResult });
+        setLastUpdated(new Date());
       } catch (error) {
         console.error('Error fetching data:', error);
-        setError('Failed to fetch market data. Please try again later.');
+        setError(error.message || 'Failed to fetch market data. Please try again later.');
       } finally {
         setIsLoading(false);
       }
@@ -74,11 +55,7 @@ const Dashboard = () => {
     const interval = setInterval(fetchData, 60000); // Update every minute
 
     return () => clearInterval(interval);
-  }, [selectedStock, selectedTimeframe]);
-
-  const handleStockSelect = (symbol) => {
-    setSelectedStock(symbol);
-  };
+  }, []);
 
   if (isLoading) {
     return (
@@ -101,7 +78,14 @@ const Dashboard = () => {
           <FaChartLine className="mr-2" />
           Tech Stocks Dashboard
         </h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-2">Track your favorite tech stocks in real-time</p>
+        <p className="text-gray-600 dark:text-gray-400 mt-2">
+          Track your favorite tech stocks in real-time
+          {lastUpdated && (
+            <span className="ml-2 text-sm">
+              (Last updated: {lastUpdated.toLocaleTimeString()})
+            </span>
+          )}
+        </p>
       </header>
 
       {/* Market Overview */}
@@ -163,38 +147,8 @@ const Dashboard = () => {
           <StockCard
             key={symbol}
             data={stockData[symbol]}
-            onClick={() => handleStockSelect(symbol)}
-            isSelected={selectedStock === symbol}
           />
         ))}
-      </div>
-
-      {/* Chart Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold flex items-center text-gray-900 dark:text-white">
-            <FaDollarSign className="mr-2" />
-            {selectedStock} Performance
-          </h2>
-          <div className="flex space-x-2">
-            {['1D', '1W', '1M', '3M', '1Y'].map((timeframe) => (
-              <button
-                key={timeframe}
-                onClick={() => setSelectedTimeframe(timeframe)}
-                className={`px-3 py-1 rounded ${
-                  selectedTimeframe === timeframe
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300'
-                }`}
-              >
-                {timeframe}
-              </button>
-            ))}
-          </div>
-        </div>
-        {historicalData[selectedStock] && (
-          <StockChart data={historicalData[selectedStock]} symbol={selectedStock} />
-        )}
       </div>
 
       {/* Call to Action */}
