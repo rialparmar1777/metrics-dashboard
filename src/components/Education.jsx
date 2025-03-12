@@ -17,13 +17,13 @@ const Education = () => {
       {
         id: 'basics-1',
         title: 'Introduction to Stock Markets',
-        url: 'https://www.youtube.com/embed/Xn7KWR9EOGQ',
+        url: 'https://www.youtube.com/embed/p7HKvqRI_Bo',
         description: 'Learn the basics of how stock markets work'
       },
       {
         id: 'basics-2',
         title: 'How to Read Stock Charts',
-        url: 'https://www.youtube.com/embed/cQv9Yh7qGhw',
+        url: 'https://www.youtube.com/embed/HAe7YGxHIYg',
         description: 'Understanding technical analysis basics'
       }
     ],
@@ -31,13 +31,13 @@ const Education = () => {
       {
         id: 'tech-1',
         title: 'Technical Analysis Fundamentals',
-        url: 'https://www.youtube.com/embed/eynxyoKgpng',
+        url: 'https://www.youtube.com/embed/08R_TJhAOGo',
         description: 'Master technical analysis indicators'
       },
       {
         id: 'tech-2',
         title: 'Chart Patterns Explained',
-        url: 'https://www.youtube.com/embed/QqqAXZt_DfY',
+        url: 'https://www.youtube.com/embed/Lhf_2gJJS1I',
         description: 'Learn to identify trading patterns'
       }
     ],
@@ -45,13 +45,13 @@ const Education = () => {
       {
         id: 'fund-1',
         title: 'Fundamental Analysis Basics',
-        url: 'https://www.youtube.com/embed/7f9HEj2Gk2M',
+        url: 'https://www.youtube.com/embed/KfDB9e_cO4k',
         description: 'Understanding company valuations'
       },
       {
         id: 'fund-2',
         title: 'Reading Financial Statements',
-        url: 'https://www.youtube.com/embed/bZEJpYJ0KPY',
+        url: 'https://www.youtube.com/embed/18uk3WWl2ro',
         description: 'How to analyze company reports'
       }
     ]
