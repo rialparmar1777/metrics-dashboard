@@ -3,6 +3,7 @@ import axios from 'axios';
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
 const BASE_URL = 'http://localhost:5001/api';
+const FINNHUB_API_KEY = import.meta.env.VITE_FINNHUB_API_KEY;
 
 // Create API instance
 const api = axios.create({
@@ -280,6 +281,66 @@ const stockApi = {
       return ws;
     } catch (error) {
       console.error('WebSocket connection error:', error);
+      throw error;
+    }
+  },
+
+  async fetchStockQuote(symbol) {
+    try {
+      const response = await fetch(
+        `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`
+      );
+      if (!response.ok) {
+        throw new Error('Failed to fetch stock quote');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching stock quote:', error);
+      throw error;
+    }
+  },
+
+  async fetchStockProfile(symbol) {
+    try {
+      const response = await fetch(
+        `https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${FINNHUB_API_KEY}`
+      );
+      if (!response.ok) {
+        throw new Error('Failed to fetch stock profile');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching stock profile:', error);
+      throw error;
+    }
+  },
+
+  async fetchStockMetrics(symbol) {
+    try {
+      const response = await fetch(
+        `https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${FINNHUB_API_KEY}`
+      );
+      if (!response.ok) {
+        throw new Error('Failed to fetch stock metrics');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching stock metrics:', error);
+      throw error;
+    }
+  },
+
+  async fetchHistoricalData(symbol, resolution = 'D', from, to) {
+    try {
+      const response = await fetch(
+        `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=${resolution}&from=${from}&to=${to}&token=${FINNHUB_API_KEY}`
+      );
+      if (!response.ok) {
+        throw new Error('Failed to fetch historical data');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching historical data:', error);
       throw error;
     }
   }

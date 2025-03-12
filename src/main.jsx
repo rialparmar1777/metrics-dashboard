@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import './index.css';
+import './firebase'; // Import firebase configuration
+import { AuthProvider } from './services/auth';
 
 // Initialize dark mode from localStorage or system preference
 const initializeDarkMode = () => {
@@ -21,8 +23,10 @@ initializeDarkMode();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </AuthProvider>
   </React.StrictMode>
 );

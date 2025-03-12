@@ -1,36 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FaChartLine, FaBalanceScale, FaExchangeAlt, FaSun, FaMoon } from 'react-icons/fa';
-import authService from '../services/auth';
+import { FaChartLine, FaBalanceScale, FaExchangeAlt, FaSun, FaMoon, FaStar } from 'react-icons/fa';
+import { useAuth } from '../services/auth.jsx';
 
 const Navbar = () => {
   const [darkMode, setDarkMode] = useState(false);
-  const [user, setUser] = useState(null);
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    const unsubscribe = authService.onAuthStateChanged((user) => {
-      setUser(user);
-    });
-
     // Check system preference for dark mode
     if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
       setDarkMode(true);
       document.documentElement.classList.add('dark');
     }
-
-    return () => unsubscribe();
   }, []);
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
     document.documentElement.classList.toggle('dark');
+    localStorage.setItem('darkMode', !darkMode);
   };
 
   const handleLogout = async () => {
     try {
-      await authService.logout();
+      await logout();
       navigate('/login');
     } catch (error) {
       console.error('Logout error:', error);
@@ -87,6 +82,27 @@ const Navbar = () => {
                 >
                   <FaExchangeAlt className="mr-2" />
                   Compare Stocks
+                </Link>
+                <Link
+                  to="/watchlist"
+                  className={`${
+                    isActive('/watchlist')
+                      ? 'bg-gray-900 text-white dark:bg-gray-700'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-700 hover:text-white'
+                  } px-3 py-2 rounded-md text-sm font-medium flex items-center`}
+                >
+                  <FaStar className="mr-2" />
+                  Watchlist
+                </Link>
+                <Link
+                  to="/portfolio"
+                  className={`${
+                    isActive('/portfolio')
+                      ? 'bg-gray-900 text-white dark:bg-gray-700'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-700 hover:text-white'
+                  } px-3 py-2 rounded-md text-sm font-medium flex items-center`}
+                >
+                  Portfolio
                 </Link>
               </div>
             </div>

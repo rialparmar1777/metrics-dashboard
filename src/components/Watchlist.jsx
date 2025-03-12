@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FaPlus, FaTrash, FaSearch, FaFilter, FaSortAmountUp, FaSortAmountDown, FaSpinner } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaSearch, FaFilter, FaSortAmountUp, FaSortAmountDown, FaSpinner, FaStar } from 'react-icons/fa';
 import StockCard from './StockCard';
 import api from '../services/api';
+import { useAuth } from '../services/auth.jsx';
+import { db } from '../firebase';
+import { collection, query, where, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore';
 
 const Watchlist = () => {
   // State management
@@ -17,6 +20,7 @@ const Watchlist = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [selectedStock, setSelectedStock] = useState(null);
+  const { user } = useAuth();
 
   // Portfolio statistics
   const portfolioStats = {
@@ -40,15 +44,23 @@ const Watchlist = () => {
     try {
       setIsLoading(true);
       setError('');
-      const data = await api.getWatchlist();
-      setWatchlist(data);
+      const q = query(
+        collection(db, 'watchlist'),
+        where('userId', '==', user.uid)
+      );
+      const querySnapshot = await getDocs(q);
+      const watchlistData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setWatchlist(watchlistData);
     } catch (error) {
       setError('Failed to fetch watchlist. Please try again.');
       console.error('Error fetching watchlist:', error);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   // Fetch stock data for all watchlist items
   const fetchAllStockData = useCallback(async () => {
@@ -56,7 +68,7 @@ const Watchlist = () => {
 
     setIsUpdating(true);
     try {
-      const results = await api.fetchMultipleStockData(watchlist);
+      const results = await api.fetchMultipleStockData(watchlist.map(stock => stock.symbol));
       const stockDataObj = {};
       results.forEach(result => {
         if (!result.error) {
@@ -89,13 +101,11 @@ const Watchlist = () => {
   };
 
   // Add a stock to watchlist
-  const addStock = async (symbol) => {
-    if (!symbol) {
-      setError('Please enter a stock symbol');
-      return;
-    }
+  const addStock = async (e) => {
+    e.preventDefault();
+    if (!newStock.trim()) return;
 
-    if (watchlist.includes(symbol)) {
+    if (watchlist.some(stock => stock.symbol === newStock.toUpperCase())) {
       setError('Stock already in watchlist');
       return;
     }
@@ -103,8 +113,16 @@ const Watchlist = () => {
     try {
       setIsUpdating(true);
       setError('');
-      await api.addToWatchlist(symbol);
-      await fetchWatchlistData();
+      const stockRef = await addDoc(collection(db, 'watchlist'), {
+        symbol: newStock.toUpperCase(),
+        userId: user.uid,
+        addedAt: new Date().toISOString()
+      });
+      setWatchlist([...watchlist, {
+        id: stockRef.id,
+        symbol: newStock.toUpperCase(),
+        addedAt: new Date().toISOString()
+      }]);
       setNewStock('');
       setSearchResults([]);
     } catch (error) {
@@ -116,11 +134,11 @@ const Watchlist = () => {
   };
 
   // Remove a stock from watchlist
-  const removeStock = async (symbol) => {
+  const removeStock = async (stockId) => {
     try {
       setIsUpdating(true);
-      await api.removeFromWatchlist(symbol);
-      await fetchWatchlistData();
+      await deleteDoc(doc(db, 'watchlist', stockId));
+      setWatchlist(watchlist.filter(stock => stock.id !== stockId));
     } catch (error) {
       setError('Failed to remove stock from watchlist');
       console.error('Error removing stock:', error);
@@ -132,10 +150,10 @@ const Watchlist = () => {
   // Sort and filter stocks
   const getSortedAndFilteredStocks = () => {
     return watchlist
-      .filter(symbol => symbol.includes(filterValue.toUpperCase()))
+      .filter(stock => stock.symbol.includes(filterValue.toUpperCase()))
       .sort((a, b) => {
-        const aData = stockData[a];
-        const bData = stockData[b];
+        const aData = stockData[a.symbol];
+        const bData = stockData[b.symbol];
         
         if (!aData || !bData) return 0;
         
@@ -148,7 +166,7 @@ const Watchlist = () => {
             comparison = (aData.changePercent || 0) - (bData.changePercent || 0);
             break;
           default:
-            comparison = a.localeCompare(b);
+            comparison = a.symbol.localeCompare(b.symbol);
         }
         
         return sortOrder === 'asc' ? comparison : -comparison;
@@ -220,7 +238,7 @@ const Watchlist = () => {
         {/* Add Stock Form */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
           <h2 className="text-xl font-semibold mb-4 flex items-center text-gray-900 dark:text-white">
-            <FaPlus className="mr-2" />
+            <FaStar className="mr-2" />
             Add Stock to Watchlist
           </h2>
           <div className="flex gap-4">
@@ -240,10 +258,10 @@ const Watchlist = () => {
                   {searchResults.map((result) => (
                     <button
                       key={result.symbol}
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.preventDefault();
                         setNewStock(result.symbol);
                         setSearchResults([]);
-                        addStock(result.symbol);
                       }}
                       className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700"
                     >
@@ -255,7 +273,7 @@ const Watchlist = () => {
               )}
             </div>
             <button
-              onClick={() => addStock(newStock)}
+              onClick={addStock}
               disabled={isUpdating}
               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
@@ -304,13 +322,13 @@ const Watchlist = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {getSortedAndFilteredStocks().map((symbol) => (
+            {getSortedAndFilteredStocks().map((stock) => (
               <StockCard
-                key={symbol}
-                data={stockData[symbol]}
-                onRemove={removeStock}
+                key={stock.id}
+                data={stockData[stock.symbol]}
+                onRemove={() => removeStock(stock.id)}
                 onSelect={(symbol) => setSelectedStock(selectedStock === symbol ? null : symbol)}
-                isSelected={selectedStock === symbol}
+                isSelected={selectedStock === stock.symbol}
               />
             ))}
           </div>
