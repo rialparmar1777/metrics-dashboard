@@ -17,13 +17,13 @@ const Education = () => {
       {
         id: 'basics-1',
         title: 'Introduction to Stock Markets',
-        url: 'https://www.youtube.com/embed/p7HKvqRI_Bo',
+        url: 'https://www.youtube.com/embed/ZCFkWDdmXG8',
         description: 'Learn the basics of how stock markets work'
       },
       {
         id: 'basics-2',
         title: 'How to Read Stock Charts',
-        url: 'https://www.youtube.com/embed/HAe7YGxHIYg',
+        url: 'https://www.youtube.com/embed/7PWkN9viNxA',
         description: 'Understanding technical analysis basics'
       }
     ],
@@ -37,7 +37,7 @@ const Education = () => {
       {
         id: 'tech-2',
         title: 'Chart Patterns Explained',
-        url: 'https://www.youtube.com/embed/Lhf_2gJJS1I',
+        url: 'https://www.youtube.com/embed/QqqAXZt_DfY',
         description: 'Learn to identify trading patterns'
       }
     ],
