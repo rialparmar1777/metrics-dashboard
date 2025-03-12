@@ -1,97 +1,49 @@
-import { initializeApp } from 'firebase/app';
-import { getAnalytics } from 'firebase/analytics';
 import { 
-  getAuth, 
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
-  updateProfile,
-  onAuthStateChanged as firebaseAuthStateChanged
+  onAuthStateChanged
 } from 'firebase/auth';
-
-// Initialize Firebase with your config
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
-};
-
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-const auth = getAuth(app);
+import { auth } from '../firebase';
 
 const authService = {
-  analytics,
-  
-  async register(email, password, name) {
+  // Register a new user
+  register: async (email, password) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(userCredential.user, {
-        displayName: name
-      });
       return userCredential.user;
     } catch (error) {
-      let message = 'An error occurred during registration';
-      switch (error.code) {
-        case 'auth/email-already-in-use':
-          message = 'This email is already registered';
-          break;
-        case 'auth/invalid-email':
-          message = 'Invalid email address';
-          break;
-        case 'auth/operation-not-allowed':
-          message = 'Email/password accounts are not enabled';
-          break;
-        case 'auth/weak-password':
-          message = 'Password is too weak';
-          break;
-      }
-      throw new Error(message);
+      throw error;
     }
   },
 
-  async login(email, password) {
+  // Sign in existing user
+  login: async (email, password) => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       return userCredential.user;
     } catch (error) {
-      let message = 'Login failed';
-      switch (error.code) {
-        case 'auth/invalid-email':
-          message = 'Invalid email address';
-          break;
-        case 'auth/user-disabled':
-          message = 'This account has been disabled';
-          break;
-        case 'auth/user-not-found':
-          message = 'No account found with this email';
-          break;
-        case 'auth/wrong-password':
-          message = 'Invalid password';
-          break;
-      }
-      throw new Error(message);
+      throw error;
     }
   },
 
-  async logout() {
+  // Sign out user
+  logout: async () => {
     try {
       await signOut(auth);
     } catch (error) {
-      throw new Error('Logout failed');
+      throw error;
     }
   },
 
-  getCurrentUser() {
+  // Get current user
+  getCurrentUser: () => {
     return auth.currentUser;
   },
 
-  onAuthStateChanged(callback) {
-    return firebaseAuthStateChanged(auth, callback);
+  // Subscribe to auth state changes
+  onAuthStateChanged: (callback) => {
+    return onAuthStateChanged(auth, callback);
   }
 };
 

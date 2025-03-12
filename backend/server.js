@@ -10,6 +10,8 @@ import fs from 'fs/promises';
 import { WebSocketServer } from 'ws';
 import http from 'http';
 import finnhub from 'finnhub';
+import { format, subMonths, subDays, parseISO } from 'date-fns';
+import { RSI, MACD, SMA, EMA } from 'technicalindicators';
 
 // ES modules replacement for __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -82,6 +84,26 @@ const finnhubApi = {
       return response.data;
     } catch (error) {
       console.error(`Error fetching market news:`, error.message);
+      throw error;
+    }
+  },
+
+  async getHistoricalData(symbol, resolution = 'D', from, to) {
+    try {
+      const response = await finnhubAxios.get(`/stock/candle?symbol=${symbol}&resolution=${resolution}&from=${from}&to=${to}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching historical data for ${symbol}:`, error.message);
+      throw error;
+    }
+  },
+
+  async getCompanyMetrics(symbol) {
+    try {
+      const response = await finnhubAxios.get(`/stock/metric?symbol=${symbol}&metric=all`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching company metrics for ${symbol}:`, error.message);
       throw error;
     }
   }
@@ -233,9 +255,27 @@ app.get('/api/search', async (req, res, next) => {
 // Stock quote endpoint
 app.get('/api/quote/:symbol', async (req, res, next) => {
   try {
-    const { symbol } = req.params;
+    let { symbol } = req.params;
     if (!symbol) {
       return res.status(400).json({ error: 'Symbol parameter is required' });
+    }
+
+    // Convert to uppercase and remove any whitespace
+    symbol = symbol.toUpperCase().trim();
+
+    // Check if the symbol contains any non-US stock indicators
+    if (symbol.includes('.') || symbol.includes(':')) {
+      return res.status(400).json({
+        error: 'Invalid Stock Symbol',
+        message: 'Only US stocks (NYSE/NASDAQ) are supported.',
+        suggestions: {
+          technology: ['AAPL', 'MSFT', 'GOOGL', 'META', 'NVDA'],
+          finance: ['JPM', 'BAC', 'GS'],
+          retail: ['AMZN', 'WMT', 'TGT'],
+          ev: ['TSLA', 'F', 'GM']
+        },
+        tip: 'Please use a valid US stock symbol from NYSE or NASDAQ.'
+      });
     }
 
     const cacheKey = `quote_${symbol}`;
@@ -243,6 +283,9 @@ app.get('/api/quote/:symbol', async (req, res, next) => {
     if (cachedData) {
       return res.json(cachedData);
     }
+
+    // Log the request for debugging
+    console.log(`Fetching quote for ${symbol} with API key: ${api_key.substring(0, 5)}...`);
 
     const [quote, profile] = await Promise.all([
       finnhubApi.quote(symbol),
@@ -252,7 +295,14 @@ app.get('/api/quote/:symbol', async (req, res, next) => {
     if (!quote || !quote.c) {
       return res.status(404).json({
         error: 'Stock Not Found',
-        message: `No data available for symbol: ${symbol}`
+        message: `No data available for symbol: ${symbol}`,
+        suggestions: {
+          technology: ['AAPL', 'MSFT', 'GOOGL', 'META', 'NVDA'],
+          finance: ['JPM', 'BAC', 'GS'],
+          retail: ['AMZN', 'WMT', 'TGT'],
+          ev: ['TSLA', 'F', 'GM']
+        },
+        tip: 'Make sure you are using a valid US stock symbol. Try one of the suggestions above.'
       });
     }
 
@@ -274,7 +324,19 @@ app.get('/api/quote/:symbol', async (req, res, next) => {
     cache.set(cacheKey, stockData);
     res.json(stockData);
   } catch (error) {
-    console.error(`Error fetching quote for ${req.params.symbol}:`, error);
+    console.error(`Error fetching quote for ${req.params.symbol}:`, error.message);
+    if (error.response?.status === 403) {
+      return res.status(403).json({
+        error: 'API Access Error',
+        message: 'Unable to access stock data. Please try again later.',
+        suggestions: {
+          technology: ['AAPL', 'MSFT', 'GOOGL', 'META', 'NVDA'],
+          finance: ['JPM', 'BAC', 'GS'],
+          retail: ['AMZN', 'WMT', 'TGT'],
+          ev: ['TSLA', 'F', 'GM']
+        }
+      });
+    }
     next(error);
   }
 });
@@ -472,6 +534,198 @@ app.delete('/api/alerts/:id', (req, res) => {
   res.json({ success: true });
 });
 
+// Historical data endpoint
+app.get('/api/historical/:symbol', async (req, res, next) => {
+  try {
+    const { symbol } = req.params;
+    const { period = '1M' } = req.query;
+
+    const to = Math.floor(Date.now() / 1000);
+    let from;
+
+    switch (period) {
+      case '1W':
+        from = Math.floor(subDays(new Date(), 7).getTime() / 1000);
+        break;
+      case '1M':
+        from = Math.floor(subMonths(new Date(), 1).getTime() / 1000);
+        break;
+      case '3M':
+        from = Math.floor(subMonths(new Date(), 3).getTime() / 1000);
+        break;
+      case '6M':
+        from = Math.floor(subMonths(new Date(), 6).getTime() / 1000);
+        break;
+      case '1Y':
+        from = Math.floor(subMonths(new Date(), 12).getTime() / 1000);
+        break;
+      default:
+        from = Math.floor(subMonths(new Date(), 1).getTime() / 1000);
+    }
+
+    const cacheKey = `historical_${symbol}_${period}`;
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      return res.json(cachedData);
+    }
+
+    const data = await finnhubApi.getHistoricalData(symbol, 'D', from, to);
+    
+    if (!data || data.s !== 'ok') {
+      return res.status(404).json({
+        error: 'Historical Data Not Found',
+        message: `No historical data available for symbol: ${symbol}`
+      });
+    }
+
+    // Calculate technical indicators
+    const closes = data.c;
+    const highs = data.h;
+    const lows = data.l;
+
+    const technicalData = {
+      prices: data,
+      indicators: {
+        rsi: RSI.calculate({
+          values: closes,
+          period: 14
+        }),
+        macd: MACD.calculate({
+          values: closes,
+          fastPeriod: 12,
+          slowPeriod: 26,
+          signalPeriod: 9
+        }),
+        sma20: SMA.calculate({
+          values: closes,
+          period: 20
+        }),
+        sma50: SMA.calculate({
+          values: closes,
+          period: 50
+        }),
+        ema12: EMA.calculate({
+          values: closes,
+          period: 12
+        }),
+        ema26: EMA.calculate({
+          values: closes,
+          period: 26
+        })
+      }
+    };
+
+    cache.set(cacheKey, technicalData, 300); // Cache for 5 minutes
+    res.json(technicalData);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Company fundamentals endpoint
+app.get('/api/fundamentals/:symbol', async (req, res, next) => {
+  try {
+    const { symbol } = req.params;
+    
+    const cacheKey = `fundamentals_${symbol}`;
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      return res.json(cachedData);
+    }
+
+    const [metrics, profile] = await Promise.all([
+      finnhubApi.getCompanyMetrics(symbol),
+      finnhubApi.companyProfile2(symbol)
+    ]);
+
+    const fundamentalData = {
+      profile,
+      metrics: {
+        peRatio: metrics.metric?.peBasicExcl || null,
+        pbRatio: metrics.metric?.pbQuarterly || null,
+        debtToEquity: metrics.metric?.totalDebtToEquity || null,
+        currentRatio: metrics.metric?.currentRatioQuarterly || null,
+        quickRatio: metrics.metric?.quickRatioQuarterly || null,
+        grossMargin: metrics.metric?.grossMarginTTM || null,
+        operatingMargin: metrics.metric?.operatingMarginTTM || null,
+        netMargin: metrics.metric?.netMarginTTM || null,
+        roa: metrics.metric?.roaRfy || null,
+        roe: metrics.metric?.roeRfy || null,
+        marketCap: profile?.marketCapitalization || null,
+        eps: metrics.metric?.epsBasicExclExtraItemsTTM || null
+      }
+    };
+
+    cache.set(cacheKey, fundamentalData, 3600); // Cache for 1 hour
+    res.json(fundamentalData);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Stock comparison endpoint
+app.post('/api/compare', async (req, res, next) => {
+  try {
+    const { symbols } = req.body;
+    
+    if (!Array.isArray(symbols) || symbols.length < 2) {
+      return res.status(400).json({
+        error: 'Invalid Request',
+        message: 'Please provide at least two stock symbols to compare'
+      });
+    }
+
+    const cacheKey = `compare_${symbols.sort().join('_')}`;
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      return res.json(cachedData);
+    }
+
+    const comparisonData = await Promise.all(
+      symbols.map(async (symbol) => {
+        try {
+          const [quote, fundamentals] = await Promise.all([
+            finnhubApi.quote(symbol),
+            finnhubApi.getCompanyMetrics(symbol)
+          ]);
+
+          return {
+            symbol,
+            currentPrice: quote.c,
+            priceChange: quote.d,
+            percentChange: quote.dp,
+            metrics: {
+              peRatio: fundamentals.metric?.peBasicExcl || null,
+              pbRatio: fundamentals.metric?.pbQuarterly || null,
+              marketCap: fundamentals.metric?.marketCapitalization || null,
+              eps: fundamentals.metric?.epsBasicExclExtraItemsTTM || null
+            }
+          };
+        } catch (error) {
+          console.error(`Error fetching comparison data for ${symbol}:`, error);
+          return {
+            symbol,
+            error: 'Failed to fetch comparison data'
+          };
+        }
+      })
+    );
+
+    const validData = comparisonData.filter(data => !data.error);
+    if (validData.length < 2) {
+      return res.status(404).json({
+        error: 'Comparison Data Not Found',
+        message: 'Unable to fetch data for enough symbols to compare'
+      });
+    }
+
+    cache.set(cacheKey, validData, 300); // Cache for 5 minutes
+    res.json(validData);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Apply error handling middleware
 app.use(errorHandler);
 
@@ -487,4 +741,7 @@ server.listen(port, () => {
   console.log('- GET /api/watchlist');
   console.log('- POST /api/watchlist');
   console.log('- DELETE /api/watchlist/:symbol');
+  console.log('- GET /api/historical/:symbol');
+  console.log('- GET /api/fundamentals/:symbol');
+  console.log('- POST /api/compare');
 }); 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FaChartLine, FaGlobe, FaArrowUp, FaArrowDown, FaDollarSign } from 'react-icons/fa';
+import { FaChartLine, FaGlobe, FaArrowUp, FaArrowDown, FaDollarSign, FaBalanceScale, FaExchangeAlt, FaStar, FaTrash } from 'react-icons/fa';
 import StockCard from './StockCard';
 import api from '../services/api';
 
@@ -9,6 +9,8 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [watchlist, setWatchlist] = useState([]);
+  const [newSymbol, setNewSymbol] = useState('');
 
   const techStocks = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA'];
 
@@ -56,6 +58,37 @@ const Dashboard = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    // Load watchlist from localStorage
+    const savedWatchlist = localStorage.getItem('watchlist');
+    if (savedWatchlist) {
+      setWatchlist(JSON.parse(savedWatchlist));
+    }
+  }, []);
+
+  const handleAddSymbol = (e) => {
+    e.preventDefault();
+    if (!newSymbol) return;
+
+    const symbol = newSymbol.toUpperCase();
+    if (watchlist.includes(symbol)) {
+      setError('Symbol already in watchlist');
+      return;
+    }
+
+    const updatedWatchlist = [...watchlist, symbol];
+    setWatchlist(updatedWatchlist);
+    localStorage.setItem('watchlist', JSON.stringify(updatedWatchlist));
+    setNewSymbol('');
+    setError('');
+  };
+
+  const handleRemoveSymbol = (symbol) => {
+    const updatedWatchlist = watchlist.filter(s => s !== symbol);
+    setWatchlist(updatedWatchlist);
+    localStorage.setItem('watchlist', JSON.stringify(updatedWatchlist));
+  };
 
   if (isLoading) {
     return (
@@ -149,6 +182,103 @@ const Dashboard = () => {
             data={stockData[symbol]}
           />
         ))}
+      </div>
+
+      {/* Analysis Features */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="col-span-1 md:col-span-2 lg:col-span-2">
+          <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Analysis Tools</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Link
+              to="/technical"
+              className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow"
+            >
+              <div className="flex items-center mb-4">
+                <FaChartLine className="h-6 w-6 text-blue-500" />
+                <h3 className="ml-2 text-xl font-semibold text-gray-900 dark:text-white">Technical Analysis</h3>
+              </div>
+              <p className="text-gray-600 dark:text-gray-300">
+                Analyze stock performance with technical indicators and charts
+              </p>
+            </Link>
+
+            <Link
+              to="/fundamental"
+              className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow"
+            >
+              <div className="flex items-center mb-4">
+                <FaBalanceScale className="h-6 w-6 text-green-500" />
+                <h3 className="ml-2 text-xl font-semibold text-gray-900 dark:text-white">Fundamental Analysis</h3>
+              </div>
+              <p className="text-gray-600 dark:text-gray-300">
+                Review company financials and key metrics
+              </p>
+            </Link>
+
+            <Link
+              to="/compare"
+              className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow"
+            >
+              <div className="flex items-center mb-4">
+                <FaExchangeAlt className="h-6 w-6 text-purple-500" />
+                <h3 className="ml-2 text-xl font-semibold text-gray-900 dark:text-white">Compare Stocks</h3>
+              </div>
+              <p className="text-gray-600 dark:text-gray-300">
+                Compare multiple stocks side by side
+              </p>
+            </Link>
+          </div>
+        </div>
+
+        {/* Watchlist */}
+        <div className="col-span-1">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white flex items-center">
+              <FaStar className="h-5 w-5 text-yellow-500 mr-2" />
+              Watchlist
+            </h2>
+            
+            <form onSubmit={handleAddSymbol} className="mb-4">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newSymbol}
+                  onChange={(e) => setNewSymbol(e.target.value)}
+                  placeholder="Add symbol (e.g., AAPL)"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                />
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  Add
+                </button>
+              </div>
+              {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
+            </form>
+
+            <div className="space-y-2">
+              {watchlist.length === 0 ? (
+                <p className="text-gray-500 dark:text-gray-400">No stocks in watchlist</p>
+              ) : (
+                watchlist.map((symbol) => (
+                  <div
+                    key={symbol}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-md"
+                  >
+                    <span className="font-medium text-gray-900 dark:text-white">{symbol}</span>
+                    <button
+                      onClick={() => handleRemoveSymbol(symbol)}
+                      className="text-red-500 hover:text-red-700 focus:outline-none"
+                    >
+                      <FaTrash className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Call to Action */}
