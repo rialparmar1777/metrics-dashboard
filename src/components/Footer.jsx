@@ -94,18 +94,34 @@ const Footer = () => {
 
         {/* Bottom Bar */}
         <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="flex items-center space-x-2">
-              <FaChartLine className="h-5 w-5 text-blue-500" />
-              <span className="text-gray-600 dark:text-gray-300">Metrics Dashboard</span>
-              <div className="flex items-center ml-2">
-                <FaBolt className="text-yellow-400 animate-pulse mr-1" />
-                <span className="bg-gradient-to-r from-blue-600 to-purple-600 text-transparent bg-clip-text font-bold">
-                  Powered by Rial
-                </span>
-              </div>
+          <div className="flex items-center justify-between w-full">
+            {/* Powered by Rial - Left */}
+            <div className="flex items-center">
+              <FaBolt className="text-yellow-400 animate-pulse mr-2" />
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 text-transparent bg-clip-text font-bold text-lg">
+                Powered by Rial
+              </span>
             </div>
-            <div className="mt-4 md:mt-0 text-center flex items-center space-x-1">
+
+            {/* Logo - Center */}
+            <div className="absolute left-1/2 transform -translate-x-1/2">
+              <img
+                src="/logo.png"
+                alt="Metrics Dashboard Logo"
+                className="h-20 w-auto object-contain"
+                style={{ 
+                  maxHeight: '100px',
+                  minWidth: '420px',
+                  objectFit: 'contain',
+                  objectPosition: 'center',
+                  filter: 'contrast(1.3) brightness(1.2)',
+                  transform: 'scale(1.2)'
+                }}
+              />
+            </div>
+            
+            {/* Copyright - Right */}
+            <div className="flex items-center space-x-1">
               <span className="text-gray-600 dark:text-gray-300">Made with</span>
               <FaHeart className="h-4 w-4 text-red-500" />
               <span className="text-gray-600 dark:text-gray-300">© {currentYear} All rights reserved</span>

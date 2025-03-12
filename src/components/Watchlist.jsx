@@ -5,6 +5,7 @@ import api from '../services/api';
 import { useAuth } from '../services/auth.jsx';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore';
+import Tooltip from './common/Tooltip';
 
 const Watchlist = () => {
   // State management

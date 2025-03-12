@@ -10,6 +10,7 @@ import FundamentalAnalysis from './components/FundamentalAnalysis';
 import StockComparison from './components/StockComparison';
 import Portfolio from './components/Portfolio';
 import Watchlist from './components/Watchlist';
+import Education from './components/Education';
 import { useAuth } from './services/auth.jsx';
 
 const PrivateRoute = ({ children }) => {
@@ -60,6 +61,10 @@ const App = () => {
           <Route
             path="/watchlist"
             element={user ? <Watchlist /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/education"
+            element={user ? <Education /> : <Navigate to="/login" />}
           />
         </Routes>
       </div>
