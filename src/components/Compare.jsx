@@ -27,25 +27,23 @@ ChartJS.register(
   Filler
 );
 
-const StockComparison = () => {
+const Compare = () => {
   const [selectedMetric, setSelectedMetric] = useState('price');
   const [timeframe, setTimeframe] = useState('1Y');
-  const [stock1, setStock1] = useState('AAPL');
-  const [stock2, setStock2] = useState('MSFT');
 
   // Sample price performance data
   const priceData = {
     labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
     datasets: [
       {
-        label: stock1,
+        label: 'AAPL',
         data: [150, 155, 160, 165, 170, 175, 180, 185, 190, 195, 200, 205],
         borderColor: 'rgb(75, 192, 192)',
         tension: 0.1,
         fill: false
       },
       {
-        label: stock2,
+        label: 'MSFT',
         data: [280, 285, 290, 295, 300, 305, 310, 315, 320, 325, 330, 335],
         borderColor: 'rgb(255, 99, 132)',
         tension: 0.1,
@@ -59,14 +57,14 @@ const StockComparison = () => {
     labels: ['Revenue', 'Net Income', 'Operating Margin', 'Free Cash Flow'],
     datasets: [
       {
-        label: stock1,
+        label: 'AAPL',
         data: [100, 25, 30, 20],
         backgroundColor: 'rgba(75, 192, 192, 0.5)',
         borderColor: 'rgb(75, 192, 192)',
         borderWidth: 1
       },
       {
-        label: stock2,
+        label: 'MSFT',
         data: [90, 22, 28, 18],
         backgroundColor: 'rgba(255, 99, 132, 0.5)',
         borderColor: 'rgb(255, 99, 132)',
@@ -80,14 +78,14 @@ const StockComparison = () => {
     labels: ['P/E', 'P/B', 'P/S', 'EV/EBITDA'],
     datasets: [
       {
-        label: stock1,
+        label: 'AAPL',
         data: [25, 3.2, 5.5, 18],
         backgroundColor: 'rgba(153, 102, 255, 0.5)',
         borderColor: 'rgb(153, 102, 255)',
         borderWidth: 1
       },
       {
-        label: stock2,
+        label: 'MSFT',
         data: [28, 3.5, 6.0, 20],
         backgroundColor: 'rgba(255, 159, 64, 0.5)',
         borderColor: 'rgb(255, 159, 64)',
@@ -128,12 +126,12 @@ const StockComparison = () => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
-              <h4 className="font-semibold text-gray-900 dark:text-white">{stock1} Performance</h4>
+              <h4 className="font-semibold text-gray-900 dark:text-white">AAPL Performance</h4>
               <p className="text-2xl text-green-500">+36.7%</p>
               <p className="text-sm text-gray-600 dark:text-gray-400">Year to Date</p>
             </div>
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
-              <h4 className="font-semibold text-gray-900 dark:text-white">{stock2} Performance</h4>
+              <h4 className="font-semibold text-gray-900 dark:text-white">MSFT Performance</h4>
               <p className="text-2xl text-green-500">+19.6%</p>
               <p className="text-sm text-gray-600 dark:text-gray-400">Year to Date</p>
             </div>
@@ -154,13 +152,13 @@ const StockComparison = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
               <h4 className="font-semibold text-gray-900 dark:text-white">Revenue Growth</h4>
-              <p className="text-2xl text-green-500">{stock1}: +8.2%</p>
-              <p className="text-2xl text-blue-500">{stock2}: +7.5%</p>
+              <p className="text-2xl text-green-500">AAPL: +8.2%</p>
+              <p className="text-2xl text-blue-500">MSFT: +7.5%</p>
             </div>
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
               <h4 className="font-semibold text-gray-900 dark:text-white">Profit Margin</h4>
-              <p className="text-2xl text-green-500">{stock1}: 25%</p>
-              <p className="text-2xl text-blue-500">{stock2}: 24%</p>
+              <p className="text-2xl text-green-500">AAPL: 25%</p>
+              <p className="text-2xl text-blue-500">MSFT: 24%</p>
             </div>
           </div>
         </div>
@@ -179,13 +177,13 @@ const StockComparison = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
               <h4 className="font-semibold text-gray-900 dark:text-white">P/E Ratio</h4>
-              <p className="text-2xl text-blue-500">{stock1}: 25</p>
-              <p className="text-2xl text-purple-500">{stock2}: 28</p>
+              <p className="text-2xl text-blue-500">AAPL: 25</p>
+              <p className="text-2xl text-purple-500">MSFT: 28</p>
             </div>
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
               <h4 className="font-semibold text-gray-900 dark:text-white">P/B Ratio</h4>
-              <p className="text-2xl text-blue-500">{stock1}: 3.2</p>
-              <p className="text-2xl text-purple-500">{stock2}: 3.5</p>
+              <p className="text-2xl text-blue-500">AAPL: 3.2</p>
+              <p className="text-2xl text-purple-500">MSFT: 3.5</p>
             </div>
           </div>
         </div>
@@ -200,23 +198,23 @@ const StockComparison = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
             <h4 className="font-semibold text-gray-900 dark:text-white">Revenue Growth</h4>
-            <p className="text-2xl text-green-500">{stock1}: +8.2%</p>
-            <p className="text-2xl text-blue-500">{stock2}: +7.5%</p>
+            <p className="text-2xl text-green-500">AAPL: +8.2%</p>
+            <p className="text-2xl text-blue-500">MSFT: +7.5%</p>
           </div>
           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
             <h4 className="font-semibold text-gray-900 dark:text-white">EPS Growth</h4>
-            <p className="text-2xl text-green-500">{stock1}: +12.3%</p>
-            <p className="text-2xl text-blue-500">{stock2}: +10.8%</p>
+            <p className="text-2xl text-green-500">AAPL: +12.3%</p>
+            <p className="text-2xl text-blue-500">MSFT: +10.8%</p>
           </div>
           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
             <h4 className="font-semibold text-gray-900 dark:text-white">Free Cash Flow Growth</h4>
-            <p className="text-2xl text-green-500">{stock1}: +15.4%</p>
-            <p className="text-2xl text-blue-500">{stock2}: +13.2%</p>
+            <p className="text-2xl text-green-500">AAPL: +15.4%</p>
+            <p className="text-2xl text-blue-500">MSFT: +13.2%</p>
           </div>
           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
             <h4 className="font-semibold text-gray-900 dark:text-white">Dividend Growth</h4>
-            <p className="text-2xl text-green-500">{stock1}: +7.8%</p>
-            <p className="text-2xl text-blue-500">{stock2}: +10.2%</p>
+            <p className="text-2xl text-green-500">AAPL: +7.8%</p>
+            <p className="text-2xl text-blue-500">MSFT: +10.2%</p>
           </div>
         </div>
       )
@@ -230,23 +228,23 @@ const StockComparison = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
             <h4 className="font-semibold text-gray-900 dark:text-white">Beta</h4>
-            <p className="text-2xl text-blue-500">{stock1}: 1.2</p>
-            <p className="text-2xl text-purple-500">{stock2}: 1.1</p>
+            <p className="text-2xl text-blue-500">AAPL: 1.2</p>
+            <p className="text-2xl text-purple-500">MSFT: 1.1</p>
           </div>
           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
             <h4 className="font-semibold text-gray-900 dark:text-white">Volatility</h4>
-            <p className="text-2xl text-blue-500">{stock1}: 18.5%</p>
-            <p className="text-2xl text-purple-500">{stock2}: 16.8%</p>
+            <p className="text-2xl text-blue-500">AAPL: 18.5%</p>
+            <p className="text-2xl text-purple-500">MSFT: 16.8%</p>
           </div>
           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
             <h4 className="font-semibold text-gray-900 dark:text-white">Debt/Equity</h4>
-            <p className="text-2xl text-blue-500">{stock1}: 0.45</p>
-            <p className="text-2xl text-purple-500">{stock2}: 0.38</p>
+            <p className="text-2xl text-blue-500">AAPL: 0.45</p>
+            <p className="text-2xl text-purple-500">MSFT: 0.38</p>
           </div>
           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
             <h4 className="font-semibold text-gray-900 dark:text-white">Interest Coverage</h4>
-            <p className="text-2xl text-blue-500">{stock1}: 4.2x</p>
-            <p className="text-2xl text-purple-500">{stock2}: 4.8x</p>
+            <p className="text-2xl text-blue-500">AAPL: 4.2x</p>
+            <p className="text-2xl text-purple-500">MSFT: 4.8x</p>
           </div>
         </div>
       )
@@ -254,11 +252,6 @@ const StockComparison = () => {
   ];
 
   const timeframes = ['1M', '3M', '6M', '1Y', '3Y', '5Y', 'MAX'];
-
-  const handleCompare = () => {
-    // Here you would typically fetch real data for the selected stocks
-    console.log(`Comparing ${stock1} and ${stock2}`);
-  };
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 py-8">
@@ -273,37 +266,13 @@ const StockComparison = () => {
           </p>
         </div>
 
-        {/* Stock Selection */}
-        <div className="flex flex-col sm:flex-row justify-center items-center mb-8 space-y-4 sm:space-y-0 sm:space-x-4">
-          <input
-            type="text"
-            value={stock1}
-            onChange={(e) => setStock1(e.target.value.toUpperCase())}
-            placeholder="Enter first stock symbol"
-            className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          />
-          <input
-            type="text"
-            value={stock2}
-            onChange={(e) => setStock2(e.target.value.toUpperCase())}
-            placeholder="Enter second stock symbol"
-            className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          />
-          <button
-            onClick={handleCompare}
-            className="w-full sm:w-auto px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            Compare
-          </button>
-        </div>
-
         {/* Timeframe Selection */}
-        <div className="flex flex-wrap justify-center mb-8 space-x-2 sm:space-x-4">
+        <div className="flex justify-center mb-8 space-x-4">
           {timeframes.map((tf) => (
             <button
               key={tf}
               onClick={() => setTimeframe(tf)}
-              className={`px-3 sm:px-4 py-2 rounded-md font-medium mb-2 ${
+              className={`px-4 py-2 rounded-md font-medium ${
                 timeframe === tf
                   ? 'bg-blue-500 text-white'
                   : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -315,7 +284,7 @@ const StockComparison = () => {
         </div>
 
         {/* Metric Selection */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
           {metrics.map((metric) => (
             <button
               key={metric.id}
@@ -327,7 +296,7 @@ const StockComparison = () => {
               }`}
             >
               <metric.icon className="h-6 w-6" />
-              <span className="text-sm font-medium text-center">{metric.name}</span>
+              <span className="text-sm font-medium">{metric.name}</span>
             </button>
           ))}
         </div>
@@ -351,7 +320,7 @@ const StockComparison = () => {
         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              {stock1} Summary
+              AAPL Summary
             </h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
@@ -375,7 +344,7 @@ const StockComparison = () => {
 
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              {stock2} Summary
+              MSFT Summary
             </h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
@@ -402,4 +371,4 @@ const StockComparison = () => {
   );
 };
 
-export default StockComparison; 
+export default Compare; 
