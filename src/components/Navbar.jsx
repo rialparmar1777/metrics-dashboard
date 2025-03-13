@@ -18,6 +18,9 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Add new state for mobile menu animation
+  const [menuClosing, setMenuClosing] = useState(false);
+
   useEffect(() => {
     if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
       setDarkMode(true);
@@ -134,6 +137,38 @@ const Navbar = () => {
     return date.toLocaleDateString();
   };
 
+  // Prevent body scroll when menu is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  // Enhanced mobile menu handling with touch events
+  const handleMobileMenuToggle = () => {
+    if (isOpen) {
+      setMenuClosing(true);
+      setTimeout(() => {
+        setIsOpen(false);
+        setMenuClosing(false);
+      }, 300);
+    } else {
+      setIsOpen(true);
+    }
+  };
+
+  // Close menu on route change
+  useEffect(() => {
+    if (isOpen) {
+      handleMobileMenuToggle();
+    }
+  }, [location.pathname]);
+
   if (!user) {
     return null;
   }
@@ -149,14 +184,14 @@ const Navbar = () => {
       `}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Brand Name */}
+            {/* Enhanced Brand Name */}
             <div className="flex-shrink-0 flex items-center">
               <Link 
                 to="/dashboard" 
                 className="flex items-center space-x-2 group"
               >
-                <FaRocket className="h-6 w-6 text-blue-600 dark:text-blue-500 transform group-hover:rotate-12 transition-transform duration-300" />
-                <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 text-transparent bg-clip-text group-hover:from-purple-600 group-hover:to-blue-600 transition-all duration-300">
+                <FaRocket className="h-6 w-6 text-blue-600 dark:text-blue-500 transform group-hover:rotate-45 transition-all duration-500" />
+                <span className="text-xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 bg-size-200 bg-pos-0 hover:bg-pos-100 text-transparent bg-clip-text transition-all duration-500">
                   Metrics
                 </span>
               </Link>
@@ -340,133 +375,188 @@ const Navbar = () => {
               </div>
             </div>
 
-            {/* Mobile menu button */}
-            <div className="md:hidden flex items-center space-x-2">
+            {/* Enhanced Mobile menu button */}
+            <div className="md:hidden flex items-center space-x-3">
+              {/* Notifications for Mobile */}
+              <button className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-300 relative">
+                <FaBell className="h-5 w-5" />
+                {notifications > 0 && (
+                  <span className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
+                    {notifications}
+                  </span>
+                )}
+              </button>
+
+              {/* Dark Mode Toggle for Mobile */}
               <button
                 onClick={toggleDarkMode}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-300"
+                className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-300"
               >
                 {darkMode ? (
-                  <FaSun className="h-5 w-5 text-yellow-500" />
+                  <FaSun className="h-5 w-5 text-yellow-500 animate-spin-slow" />
                 ) : (
                   <FaMoon className="h-5 w-5 text-gray-700" />
                 )}
               </button>
+
+              {/* Hamburger Menu Button */}
               <button
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={handleMobileMenuToggle}
                 className="p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700
-                  focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 transition-all duration-300"
+                  focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 transition-all duration-300
+                  relative overflow-hidden group"
               >
-                {isOpen ? (
-                  <FaTimes className="h-6 w-6" />
-                ) : (
-                  <FaBars className="h-6 w-6" />
-                )}
+                <div className="relative z-10">
+                  {isOpen ? (
+                    <FaTimes className="h-6 w-6 transform rotate-90 transition-transform duration-300" />
+                  ) : (
+                    <FaBars className="h-6 w-6 transform transition-transform duration-300" />
+                  )}
+                </div>
+                <div className={`
+                  absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 opacity-0
+                  group-hover:opacity-10 transition-opacity duration-300
+                  ${isOpen ? 'scale-x-100' : 'scale-x-0'}
+                `} />
               </button>
             </div>
           </div>
         </div>
 
-        {/* Mobile menu */}
+        {/* Enhanced Mobile menu */}
         <div 
           className={`
-            md:hidden 
-            transition-all duration-300 ease-in-out
-            ${isOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}
+            md:hidden fixed inset-0 z-40
+            ${isOpen ? 'visible' : 'invisible'}
           `}
+          onClick={(e) => e.stopPropagation()}
         >
-          <div className="px-2 pt-2 pb-3 space-y-1 bg-white dark:bg-gray-800 shadow-lg border-t border-gray-200 dark:border-gray-700">
-            {/* Market News Section for Mobile */}
-            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 flex items-center">
-                <FaNewspaper className="h-4 w-4 mr-2" />
-                Latest Market News
-              </h3>
-              <div className="space-y-3">
-                {marketNews.slice(0, 3).map((news, index) => (
-                  <a
-                    key={index}
-                    href={news.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block"
+          {/* Backdrop */}
+          <div 
+            className={`
+              absolute inset-0 bg-black/50 backdrop-blur-sm
+              transition-opacity duration-300 ease-in-out
+              ${isOpen ? 'opacity-100' : 'opacity-0'}
+            `}
+            onClick={handleMobileMenuToggle}
+          />
+
+          {/* Menu Content */}
+          <div 
+            className={`
+              absolute right-0 top-0 h-[100dvh] w-[85%] max-w-sm
+              bg-white dark:bg-gray-800 shadow-2xl
+              transform transition-transform duration-300 ease-in-out
+              ${isOpen ? 'translate-x-0' : 'translate-x-full'}
+              overflow-y-auto overscroll-contain
+              flex flex-col
+            `}
+          >
+            {/* User Profile Section */}
+            <div className="p-6 bg-gradient-to-r from-blue-500 to-purple-500 flex-shrink-0">
+              <div className="flex items-center space-x-4">
+                <div className="h-12 w-12 rounded-full bg-white/20 backdrop-blur-lg 
+                  flex items-center justify-center text-white text-xl font-semibold
+                  shadow-inner">
+                  {user.email.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-medium truncate">{user.email}</p>
+                  <p className="text-blue-100 text-sm">Pro Member</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto overscroll-contain">
+              {/* Market News Section */}
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                  <FaNewspaper className="h-4 w-4 mr-2 text-blue-500" />
+                  Latest Market News
+                </h3>
+                <div className="space-y-3">
+                  {marketNews.slice(0, 3).map((news, index) => (
+                    <a
+                      key={index}
+                      href={news.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 
+                        transition-colors active:bg-gray-100 dark:active:bg-gray-600/50"
+                    >
+                      <p className="text-sm text-gray-900 dark:text-white line-clamp-2 mb-1">
+                        {news.headline}
+                      </p>
+                      <div className="flex items-center space-x-2 text-xs">
+                        <span className="text-gray-500 dark:text-gray-400">
+                          {formatNewsTime(news.datetime)}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 
+                          text-blue-600 dark:text-blue-400">
+                          {news.source}
+                        </span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+
+              {/* Navigation Items */}
+              <div className="p-4 space-y-2">
+                {navItems.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={handleMobileMenuToggle}
+                    className={`
+                      block px-4 py-3.5 rounded-xl text-base font-medium
+                      transition-all duration-300 relative overflow-hidden group
+                      active:scale-95 touch-manipulation
+                      ${isActive(item.path)
+                        ? `bg-gradient-to-r ${item.color} text-white shadow-md`
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                      }
+                    `}
                   >
-                    <div className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
-                      {news.headline}
+                    <div className="flex items-center space-x-3 relative z-10">
+                      <item.icon className={`h-5 w-5 ${
+                        isActive(item.path) 
+                          ? 'text-white' 
+                          : 'text-gray-500 dark:text-gray-400 group-hover:text-blue-500'
+                      }`} />
+                      <span>{item.name}</span>
                     </div>
-                    <div className="mt-1 flex items-center space-x-2">
-                      <span className="text-xs text-gray-500">{formatNewsTime(news.datetime)}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                        {news.source}
-                      </span>
-                    </div>
-                  </a>
+                    <div className={`
+                      absolute inset-0 bg-gradient-to-r ${item.color} opacity-0
+                      group-hover:opacity-10 transition-opacity duration-300
+                      ${!isActive(item.path) ? 'block' : 'hidden'}
+                    `} />
+                  </Link>
                 ))}
               </div>
             </div>
 
-            {navItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setIsOpen(false)}
-                className={`
-                  block px-4 py-3 rounded-lg text-base font-medium
-                  transition-all duration-300
-                  ${isActive(item.path)
-                    ? `bg-gradient-to-r ${item.color} text-white shadow-md`
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }
-                `}
+            {/* Action Buttons - Fixed at Bottom */}
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+              <button
+                onClick={() => {
+                  handleMobileMenuToggle();
+                  handleLogout();
+                }}
+                className="w-full flex items-center justify-center px-4 py-3.5 text-base font-medium 
+                  text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors
+                  active:scale-95 touch-manipulation"
               >
-                <div className="flex items-center space-x-3">
-                  <item.icon className={`h-5 w-5 ${isActive(item.path) ? 'text-white' : ''}`} />
-                  <span>{item.name}</span>
-                </div>
-              </Link>
-            ))}
-
-            {/* Mobile Profile Section */}
-            <div className="pt-4 pb-3 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex items-center px-3">
-                <div className="flex-shrink-0">
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-medium">
-                    {user.email.charAt(0).toUpperCase()}
-                  </div>
-                </div>
-                <div className="ml-3">
-                  <div className="text-base font-medium text-gray-800 dark:text-white truncate max-w-[200px]">
-                    {user.email}
-                  </div>
-                  <div className="mt-1">
-                    <span className="px-2 py-1 text-xs font-medium text-purple-600 bg-purple-100 dark:text-purple-400 dark:bg-purple-900/30 rounded-full">
-                      Pro Member
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-3 space-y-1">
-                <a
-                  href="#settings"
-                  className="flex items-center px-4 py-2 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                >
-                  <FaCog className="w-5 h-5 mr-3" />
-                  Settings
-                </a>
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center px-4 py-2 text-base font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                >
-                  <FaTimes className="w-5 h-5 mr-3" />
-                  Logout
-                </button>
-              </div>
+                <FaTimes className="w-5 h-5 mr-3" />
+                Logout
+              </button>
             </div>
           </div>
         </div>
       </nav>
-      {/* Spacer to prevent content from hiding under fixed navbar */}
-      <div className="h-16"></div>
+      {/* Spacer */}
+      <div className="h-16" />
     </>
   );
 };
