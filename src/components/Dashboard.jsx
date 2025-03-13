@@ -9,6 +9,7 @@ import {
 import { Line } from 'react-chartjs-2';
 import StockCard from './StockCard';
 import api from '../services/api';
+import Footer from './Footer';
 
 const Dashboard = () => {
   const [stockData, setStockData] = useState({});
@@ -19,11 +20,13 @@ const Dashboard = () => {
   const [newSymbol, setNewSymbol] = useState('');
   const [filterValue, setFilterValue] = useState('');
   const [selectedView, setSelectedView] = useState('grid');
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [touchStartY, setTouchStartY] = useState(0);
-  const [pullDistance, setPullDistance] = useState(0);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [marketStatus, setMarketStatus] = useState({
+    isOpen: true,
+    nextEvent: 'Market closes in 2h 15m',
+    timestamp: new Date().toLocaleTimeString()
+  });
   const containerRef = useRef(null);
-  const PULL_THRESHOLD = 80;
 
   const techStocks = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA'];
 
@@ -166,49 +169,6 @@ const Dashboard = () => {
     }
   }, []);
 
-  useEffect(() => {
-    const handleTouchStart = (e) => {
-      if (containerRef.current.scrollTop === 0) {
-        setTouchStartY(e.touches[0].clientY);
-      }
-    };
-
-    const handleTouchMove = (e) => {
-      if (touchStartY > 0) {
-        const pull = e.touches[0].clientY - touchStartY;
-        if (pull > 0 && pull < PULL_THRESHOLD) {
-          setPullDistance(pull);
-          e.preventDefault();
-        }
-      }
-    };
-
-    const handleTouchEnd = async () => {
-      if (pullDistance > PULL_THRESHOLD / 2) {
-        setIsRefreshing(true);
-        await fetchData();
-      }
-      setTouchStartY(0);
-      setPullDistance(0);
-      setIsRefreshing(false);
-    };
-
-    const container = containerRef.current;
-    if (container) {
-      container.addEventListener('touchstart', handleTouchStart);
-      container.addEventListener('touchmove', handleTouchMove, { passive: false });
-      container.addEventListener('touchend', handleTouchEnd);
-    }
-
-    return () => {
-      if (container) {
-        container.removeEventListener('touchstart', handleTouchStart);
-        container.removeEventListener('touchmove', handleTouchMove);
-        container.removeEventListener('touchend', handleTouchEnd);
-      }
-    };
-  }, [touchStartY, pullDistance]);
-
   const handleAddSymbol = (e) => {
     e.preventDefault();
     if (!newSymbol) return;
@@ -244,25 +204,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div 
-      ref={containerRef}
-      className="min-h-screen bg-gray-50 dark:bg-gray-900 overflow-x-hidden touch-pan-y"
-    >
-      {/* Pull to refresh indicator */}
-      <div 
-        className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-center 
-          transition-transform duration-300 bg-blue-500/10 backdrop-blur-sm
-          ${pullDistance > 0 ? 'translate-y-0' : '-translate-y-full'}`}
-        style={{ height: `${pullDistance}px` }}
-      >
-        <div className="flex items-center space-x-2">
-          <FaSpinner className={`text-blue-500 ${isRefreshing ? 'animate-spin' : ''}`} />
-          <span className="text-sm text-blue-500 font-medium">
-            {pullDistance > PULL_THRESHOLD / 2 ? 'Release to refresh' : 'Pull to refresh'}
-          </span>
-        </div>
-      </div>
-
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 overflow-x-hidden">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
         {/* Error message with improved mobile styling */}
         {error && (
@@ -513,6 +455,11 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      <Footer 
+        isDarkMode={isDarkMode}
+        onThemeToggle={() => setIsDarkMode(!isDarkMode)}
+      />
     </div>
   );
 };
