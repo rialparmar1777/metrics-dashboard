@@ -203,10 +203,31 @@ const Navbar = () => {
               <div className="relative">
                 <button 
                   onClick={() => setShowNews(!showNews)}
-                  className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-300 hover:shadow-md hover:scale-105 flex items-center space-x-2"
+                  className={`
+                    px-4 py-2 rounded-lg text-sm font-medium
+                    transition-all duration-300 ease-in-out
+                    flex items-center space-x-2
+                    group relative
+                    hover:shadow-md
+                    ${showNews
+                      ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg transform scale-105'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }
+                  `}
                 >
-                  <FaNewspaper className="h-5 w-5" />
-                  <span className="text-sm font-medium">Market News</span>
+                  <FaNewspaper className={`h-4 w-4 transition-transform duration-300 group-hover:scale-110 ${
+                    showNews ? 'text-white' : 'group-hover:text-orange-500'
+                  }`} />
+                  <span>Market News</span>
+                  
+                  {/* Tooltip */}
+                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full
+                    opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50">
+                    <div className="px-3 py-2 text-xs font-medium text-white bg-gray-900 rounded-lg shadow-xl
+                      whitespace-nowrap mt-2 border border-gray-700">
+                      Latest market updates and news
+                    </div>
+                  </div>
                 </button>
 
                 {/* News Dropdown */}
