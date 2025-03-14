@@ -281,6 +281,7 @@ app.get('/api/quote/:symbol', async (req, res, next) => {
 
     // Convert to uppercase and remove any whitespace
     symbol = symbol.toUpperCase().trim();
+    console.log(`Received quote request for symbol: ${symbol}`);
 
     // Check if the symbol contains any non-US stock indicators
     if (symbol.includes('.') || symbol.includes(':')) {
@@ -300,18 +301,23 @@ app.get('/api/quote/:symbol', async (req, res, next) => {
     const cacheKey = `quote_${symbol}`;
     const cachedData = cache.get(cacheKey);
     if (cachedData) {
+      console.log(`Returning cached data for ${symbol}`);
       return res.json(cachedData);
     }
 
     // Log the request for debugging
-    console.log(`Fetching quote for ${symbol} with API key: ${api_key.substring(0, 5)}...`);
+    console.log(`Fetching quote for ${symbol} with API key: ${api_key ? api_key.substring(0, 5) + '...' : 'not set'}`);
 
     const [quote, profile] = await Promise.all([
       finnhubApi.quote(symbol),
       finnhubApi.companyProfile2(symbol)
     ]);
 
+    console.log(`Received quote data for ${symbol}:`, quote);
+    console.log(`Received profile data for ${symbol}:`, profile);
+
     if (!quote || !quote.c) {
+      console.log(`No valid quote data for ${symbol}`);
       return res.status(404).json({
         error: 'Stock Not Found',
         message: `No data available for symbol: ${symbol}`,
@@ -340,6 +346,7 @@ app.get('/api/quote/:symbol', async (req, res, next) => {
       volume: quote.v
     };
 
+    console.log(`Sending stock data for ${symbol}:`, stockData);
     cache.set(cacheKey, stockData);
     res.json(stockData);
   } catch (error) {
