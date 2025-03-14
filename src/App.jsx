@@ -2,7 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Login from './components/Login';
-import SignUp from './components/SignUp';
+import Signup from './components/Signup';
 import Dashboard from './components/Dashboard';
 import TechnicalAnalysis from './components/TechnicalAnalysis';
 import FundamentalAnalysis from './components/FundamentalAnalysis';
@@ -35,7 +35,7 @@ const App = () => {
           />
           <Route
             path="/signup"
-            element={user ? <Navigate to="/dashboard" /> : <SignUp />}
+            element={user ? <Navigate to="/dashboard" /> : <Signup />}
           />
           <Route
             path="/dashboard"
