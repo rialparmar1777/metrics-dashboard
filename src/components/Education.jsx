@@ -3,6 +3,7 @@ import { FaGraduationCap, FaBook, FaChartLine, FaLightbulb, FaArrowRight, FaYout
 import { useAuth } from '../services/auth.jsx';
 import { db } from '../firebase';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import Footer from './Footer';
 
 const Education = () => {
   const [selectedCategory, setSelectedCategory] = useState('basics');
@@ -11,6 +12,7 @@ const Education = () => {
   const [currentQuiz, setCurrentQuiz] = useState(null);
   const [quizScore, setQuizScore] = useState(0);
   const { user } = useAuth();
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   const videos = {
     basics: [
@@ -470,6 +472,11 @@ const Education = () => {
           </div>
         </div>
       </div>
+
+      <Footer 
+        isDarkMode={isDarkMode}
+        onThemeToggle={() => setIsDarkMode(!isDarkMode)}
+      />
     </div>
   );
 };

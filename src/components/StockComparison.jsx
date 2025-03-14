@@ -13,6 +13,7 @@ import {
   Legend,
   Filler
 } from 'chart.js';
+import Footer from './Footer';
 
 // Register ChartJS components
 ChartJS.register(
@@ -32,6 +33,7 @@ const StockComparison = () => {
   const [timeframe, setTimeframe] = useState('1Y');
   const [stock1, setStock1] = useState('AAPL');
   const [stock2, setStock2] = useState('MSFT');
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Sample price performance data
   const priceData = {
@@ -398,6 +400,11 @@ const StockComparison = () => {
           </div>
         </div>
       </div>
+
+      <Footer 
+        isDarkMode={isDarkMode}
+        onThemeToggle={() => setIsDarkMode(!isDarkMode)}
+      />
     </div>
   );
 };

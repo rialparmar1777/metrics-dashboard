@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
   FaPlus, FaTrash, FaSearch, FaFilter, FaSortAmountUp, FaSortAmountDown, 
   FaSpinner, FaStar, FaChartLine, FaDollarSign, FaPercent, FaVolumeMute,
-  FaArrowUp, FaArrowDown, FaExternalLinkAlt, FaInfoCircle, FaBell, FaTimes
+  FaArrowUp, FaArrowDown, FaExternalLinkAlt, FaInfoCircle, FaBell, FaTimes, FaEdit, FaChartPie
 } from 'react-icons/fa';
 import { Line } from 'react-chartjs-2';
 import StockCard from './StockCard';
@@ -11,6 +11,7 @@ import { useAuth } from '../services/auth.jsx';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import Tooltip from './common/Tooltip';
+import Footer from './Footer';
 
 const Watchlist = () => {
   // State management
@@ -27,6 +28,7 @@ const Watchlist = () => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [selectedStock, setSelectedStock] = useState(null);
   const { user } = useAuth();
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Add new state for chart data
   const [chartData, setChartData] = useState({
@@ -628,6 +630,11 @@ const Watchlist = () => {
           </div>
         )}
       </main>
+
+      <Footer 
+        isDarkMode={isDarkMode}
+        onThemeToggle={() => setIsDarkMode(!isDarkMode)}
+      />
     </div>
   );
 };

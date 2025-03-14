@@ -10,6 +10,7 @@ import {
   Tooltip,
   Legend
 } from 'chart.js';
+import Footer from './Footer';
 
 // Register ChartJS components
 ChartJS.register(
@@ -24,6 +25,7 @@ ChartJS.register(
 const FundamentalAnalysis = () => {
   const [selectedSection, setSelectedSection] = useState('ratios');
   const [selectedTimeframe, setSelectedTimeframe] = useState('2023');
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Sample data for financial ratios
   const ratiosData = {
@@ -332,6 +334,11 @@ const FundamentalAnalysis = () => {
           </div>
         </div>
       </div>
+
+      <Footer 
+        isDarkMode={isDarkMode}
+        onThemeToggle={() => setIsDarkMode(!isDarkMode)}
+      />
     </div>
   );
 };

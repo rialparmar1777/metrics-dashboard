@@ -13,6 +13,7 @@ import {
   Filler
 } from 'chart.js';
 import { useAuth } from '../services/auth.jsx';
+import Footer from './Footer';
 
 // Register ChartJS components
 ChartJS.register(
@@ -32,6 +33,7 @@ const TechnicalAnalysis = () => {
   const [showTooltip, setShowTooltip] = useState(false);
   const [tooltipContent, setTooltipContent] = useState('');
   const { user } = useAuth();
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Sample data - Replace with real API data
   const priceData = {
@@ -292,6 +294,11 @@ const TechnicalAnalysis = () => {
           </div>
         </div>
       </div>
+
+      <Footer 
+        isDarkMode={isDarkMode}
+        onThemeToggle={() => setIsDarkMode(!isDarkMode)}
+      />
     </div>
   );
 };
