@@ -2,8 +2,8 @@
 
 A real-time stock market dashboard built with React, Node.js, and the Finnhub API. This application provides comprehensive stock market data, technical analysis, and portfolio management features.
 
-![Dashboard Preview]
-(Add a screenshot of your dashboard here)
+Dashboard Preview
+![stock1](https://github.com/user-attachments/assets/08378fee-900c-4977-bfa8-f875e77ee7a9)
 
 ## Features
 
@@ -51,7 +51,7 @@ Before you begin, ensure you have the following:
 1. Clone the repository:
    ```bash
    git clone https://github.com/yourusername/stock-market-dashboard.git
-   cd stock-market-dashboard
+   cd stock-market-dashboard or cd metrics
    ```
 
 2. Install dependencies for both frontend and backend:
@@ -91,7 +91,7 @@ Before you begin, ensure you have the following:
 1. Start the backend server:
    ```bash
    cd metrics/backend
-   npm run start
+   npm run start or node server.js
    ```
 
 2. Start the frontend development server:
@@ -166,11 +166,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-For support, email your-email@example.com or open an issue in the repository.
+For support, email rialparmar007@gmail.com or open an issue in the repository.
 
 ## Screenshots
 
-(Add screenshots of different features of your application here)
+![stock darkmode](https://github.com/user-attachments/assets/3bacb23e-1dc4-4081-86b7-b59fd0c8bd89)
+![Stocks](https://github.com/user-attachments/assets/d3a344d6-4f72-4de3-9668-78bd48ea349c)
+![Bar graph](https://github.com/user-attachments/assets/e00baa7b-820a-445b-b057-fc3c7b218527)
+![Learn](https://github.com/user-attachments/assets/6f49c7c3-1d7a-43a7-b8cd-bdc96160bb16)
+
 
 ## Future Enhancements
 
@@ -182,3 +186,5 @@ For support, email your-email@example.com or open an issue in the repository.
 - Cryptocurrency market data
 - Options trading data
 - AI-powered stock predictions 
+
+# Powered by Rial
