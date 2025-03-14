@@ -25,6 +25,9 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 const port = process.env.PORT || 5001;
 
+// Trust proxy for rate limiter
+app.set('trust proxy', 1);
+
 // Initialize cache
 const cache = new NodeCache({
   stdTTL: 300, // Cache for 5 minutes
@@ -115,6 +118,7 @@ const finnhubApi = {
 // Middleware
 app.use(cors({
   origin: [
+    'https://metrics-dashboard01-hqvjf7pfc-rialparmar1777s-projects.vercel.app',
     'https://metrics-dashboard01-o8a9my6h1-rialparmar1777s-projects.vercel.app',
     'https://metrics-dashboard01-p2dzpvo8k-rialparmar1777s-projects.vercel.app',
     'https://stocks-dashboard01.vercel.app',
