@@ -12,7 +12,7 @@ const StockDetail = () => {
   useEffect(() => {
     const fetchStockData = async () => {
       try {
-        const response = await axios.get(`http://localhost:5001/stock/${symbol}`);
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}/stock/${symbol}`);
         setStockData(response.data);
       } catch (error) {
         console.error('Error fetching stock data:', error);
@@ -28,7 +28,7 @@ const StockDetail = () => {
       try {
         const now = Math.floor(Date.now() / 1000);
         const oneMonthAgo = now - 30 * 86400; // 30 days ago
-        const response = await axios.get(`http://localhost:5001/historical/${symbol}?from=${oneMonthAgo}&to=${now}`);
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}/historical/${symbol}?from=${oneMonthAgo}&to=${now}`);
         setHistoricalData(response.data);
       } catch (error) {
         console.error('Error fetching historical data:', error);

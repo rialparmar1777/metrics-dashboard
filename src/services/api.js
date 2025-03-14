@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
-const BASE_URL = 'http://localhost:5001/api';
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 const FINNHUB_API_KEY = import.meta.env.VITE_FINNHUB_API_KEY;
 
 // Create API instance
@@ -254,7 +254,8 @@ const stockApi = {
         throw new Error('WebSocket is not supported in this browser');
       }
 
-      const ws = new WebSocket(`ws://localhost:5001/ws`);
+      const wsUrl = import.meta.env.VITE_API_URL?.replace('http://', 'ws://').replace('https://', 'wss://') || 'ws://localhost:5001';
+      const ws = new WebSocket(`${wsUrl}/ws`);
       
       ws.onopen = () => {
         console.log('WebSocket connection established');

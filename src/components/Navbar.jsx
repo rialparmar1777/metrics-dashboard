@@ -43,7 +43,7 @@ const Navbar = () => {
   // Fetch market news
   const fetchMarketNews = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/market-news');
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/market-news`);
       const data = await response.json();
       setMarketNews(data.slice(0, 5)); // Keep only latest 5 news items
     } catch (error) {
