@@ -115,10 +115,13 @@ const finnhubApi = {
 // Middleware
 app.use(cors({
   origin: [
+    'https://metrics-dashboard01-p2dzpvo8k-rialparmar1777s-projects.vercel.app',
     'https://stocks-dashboard01.vercel.app',
     'http://localhost:5173'
   ],
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 
