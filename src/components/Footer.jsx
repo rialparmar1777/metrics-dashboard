@@ -162,6 +162,9 @@ const Footer = ({ isDarkMode, onThemeToggle }) => {
               <span className="text-sm text-gray-600 dark:text-gray-400">Made with</span>
               <FaHeart className="h-4 w-4 text-red-500 animate-pulse" />
               <span className="text-sm text-gray-600 dark:text-gray-400">by Market Metrics Team</span>
+              <span className="ml-2 px-2 py-1 bg-blue-500 text-white rounded-md text-sm font-medium">
+                Powered by Rial
+              </span>
             </div>
           </div>
         </div>
