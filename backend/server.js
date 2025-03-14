@@ -33,6 +33,9 @@ const cache = new NodeCache({
 
 // Initialize Finnhub client
 const api_key = process.env.FINNHUB_API_KEY;
+if (!api_key) {
+  console.error('FINNHUB_API_KEY is not set in environment variables');
+}
 const finnhubClient = new finnhub.DefaultApi();
 
 // Set up API key configuration
@@ -110,7 +113,13 @@ const finnhubApi = {
 };
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://stocks-dashboard01.vercel.app',
+    'http://localhost:5173'
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
 // Rate limiting
